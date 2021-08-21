@@ -1,5 +1,7 @@
 module LightBSON
 
-# Write your package code here.
+using Transducers
+
+include("reader.jl")
 
 end
