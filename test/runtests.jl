@@ -1,6 +1,8 @@
+using Dates
+using DecFP
 using LightBSON
 using Test
 
 @testset "LightBSON.jl" begin
-    # Write your tests here.
+    include("reader_tests.jl")
 end

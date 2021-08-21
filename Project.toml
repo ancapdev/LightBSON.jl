@@ -4,6 +4,8 @@ authors = ["Christian Rorvik <christian.rorvik@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DecFP = "55939f99-70c6-5e9b-8bb0-5071ed7d61fd"
 Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 
 [compat]

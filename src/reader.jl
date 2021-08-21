@@ -1,30 +1,5 @@
-const BSON_TYPE_DOUBLE = 0x01
-const BSON_TYPE_STRING = 0x02
-const BSON_TYPE_DOCUMENT = 0x03
-const BSON_TYPE_ARRAY = 0x04
-const BSON_TYPE_BINARY = 0x05
-const BSON_TYPE_UNDEFINED = 0x06
-const BSON_TYPE_OBJECT_ID = 0x07
-const BSON_TYPE_BOOL = 0x08
-const BSON_TYPE_DATE_TIME = 0x09
-const BSON_TYPE_NULL = 0x0A
-const BSON_TYPE_REGEX = 0x0B
-const BSON_TYPE_DB_POINTER = 0x0C
-const BSON_TYPE_CODE = 0x0D
-const BSON_TYPE_SYMBOL = 0x0E
-const BSON_TYPE_CODE_WITH_SCOPE = 0x0F
-const BSON_TYPE_INT32 = 0x10
-const BSON_TYPE_TIMESTAMP = 0x11
-const BSON_TYPE_INT64 = 0x12
-const BSON_TYPE_DECIMAL128 = 0x13
-const BSON_TYPE_MIN_KEY = 0xFF
-const BSON_TYPE_MAX_KEY = 0x7F
-
-struct BSONConversionError <: Exception
-    src_type::UInt8
-    dst_type::DataType
-end
-
+# TODO: endian conversion on big-endian arch
+# TODO: wrapper types for datetime (to preserve precision and avoid conversion overhead) and timestamp values
 struct BSONReader{S <: DenseVector{UInt8}}
     src::S
     offset::Int
@@ -35,19 +10,21 @@ BSONReader(src::DenseVector{UInt8}) = BSONReader(src, 0, BSON_TYPE_DOCUMENT)
 
 const TYPE_SIZE_TABLE = fill(-1, 256)
 TYPE_SIZE_TABLE[BSON_TYPE_DOUBLE] = 8
-TYPE_SIZE_TABLE[BSON_TYPE_DATE_TIME] = 8
+TYPE_SIZE_TABLE[BSON_TYPE_DATETIME] = 8
 TYPE_SIZE_TABLE[BSON_TYPE_INT64] = 8
 TYPE_SIZE_TABLE[BSON_TYPE_TIMESTAMP] = 8
 TYPE_SIZE_TABLE[BSON_TYPE_INT32] = 4
 TYPE_SIZE_TABLE[BSON_TYPE_BOOL] = 1
 TYPE_SIZE_TABLE[BSON_TYPE_NULL] = 0
 TYPE_SIZE_TABLE[BSON_TYPE_DECIMAL128] = 16
-TYPE_SIZE_TABLE[BSON_TYPE_OBJECT_ID] = 12
+TYPE_SIZE_TABLE[BSON_TYPE_OBJECTID] = 12
 
 function element_size_variable_(t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_DOCUMENT || t == BSON_TYPE_ARRAY
         Int(unsafe_load(Ptr{Int32}(p)))
-    elseif t == BSON_TYPE_STRING || t == BSON_TYPE_CODE || t == BSON_TYPE_BINARY
+    elseif t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
+        Int(unsafe_load(Ptr{Int32}(p))) + 4
+    elseif t == BSON_TYPE_BINARY
         Int(unsafe_load(Ptr{Int32}(p))) + 5
     elseif t == BSON_TYPE_REGEX
         len1 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p)) + 1
@@ -139,8 +116,6 @@ function Transducers.__foldl__(rf, val, reader::BSONReader)
     end
 end
 
-# TODO: Integer, Number, Dict, Any
-
 @inline function try_load_field_(::Type{Int64}, t::UInt8, p::Ptr{UInt8})
     t == BSON_TYPE_INT64 && return unsafe_load(Ptr{Int64}(p))
     t == BSON_TYPE_INT32 && return Int64(unsafe_load(Ptr{Int32}(p)))
@@ -151,8 +126,71 @@ end
     t == BSON_TYPE_INT32 ? unsafe_load(Ptr{Int32}(p)) : nothing
 end
 
+@inline function try_load_field_(::Type{Bool}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_BOOL ? unsafe_load(p) != 0x0 : nothing
+end
+
 @inline function try_load_field_(::Type{Float64}, t::UInt8, p::Ptr{UInt8})
     t == BSON_TYPE_DOUBLE ? unsafe_load(Ptr{Float64}(p)) : nothing
+end
+
+@inline function try_load_field_(::Type{Dec128}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_DECIMAL128 ? unsafe_load(Ptr{Dec128}(p)) : nothing
+end
+
+function try_load_field_(::Type{Number}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_DOUBLE
+        unsafe_load(Ptr{Float64}(p))
+    elseif t == BSON_TYPE_INT64
+        unsafe_load(Ptr{Int64}(p))
+    elseif t == BSON_TYPE_INT32
+        unsafe_load(Ptr{Int32}(p))
+    elseif t == BSON_TYPE_DECIMAL128
+        unsafe_load(Ptr{Dec128}(p))
+    else
+        nothing
+    end
+end
+
+function try_load_field_(::Type{Integer}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_INT64
+        unsafe_load(Ptr{Int64}(p))
+    elseif t == BSON_TYPE_INT32
+        unsafe_load(Ptr{Int32}(p))
+    else
+        nothing
+    end
+end
+
+function try_load_field_(::Type{AbstractFloat}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_DOUBLE
+        unsafe_load(Ptr{Float64}(p))
+    elseif t == BSON_TYPE_DECIMAL128
+        unsafe_load(Ptr{Dec128}(p))
+    else
+        nothing
+    end
+end
+
+@inline function try_load_field_(::Type{DateTime}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_DATETIME ? DateTime(Dates.UTM(Dates.UNIXEPOCH + unsafe_load(Ptr{Int64}(p)))) : nothing
+end
+
+@inline function try_load_field_(::Type{BSONTimestamp}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_TIMESTAMP ? unsafe_load(Ptr{BSONTimestamp}(p)) : nothing
+end
+
+@inline function try_load_field_(::Type{BSONObjectId}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_OBJECTID ? unsafe_load(Ptr{BSONObjectId}(p)) : nothing
+end
+
+function try_load_field_(::Type{String}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
+        len = Int(unsafe_load(Ptr{Int32}(p)))
+        unsafe_string(p + 4, len - 1)
+    else
+        nothing
+    end
 end
 
 function Base.getindex(reader::BSONReader, ::Type{T}) where T
@@ -182,11 +220,11 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
         reader[Vector{Any}]
     elseif reader.type == BSON_TYPE_BINARY
         reader[Vector{UInt8}]
-    elseif reader.type == BSON_TYPE_OBJECT_ID
+    elseif reader.type == BSON_TYPE_OBJECTID
         error("not implemented")
     elseif reader.type == BSON_TYPE_BOOL
         reader[Bool]
-    elseif reader.type == BSON_TYPE_DATE_TIME
+    elseif reader.type == BSON_TYPE_DATETIME
         reader[DateTime]
     elseif reader.type == BSON_TYPE_NULL
         nothing
