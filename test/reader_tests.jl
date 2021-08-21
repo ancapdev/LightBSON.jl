@@ -102,19 +102,19 @@ end
     x = rand(UInt8, 10)
     io = IOBuffer()
     write(io, Int32(length(x)))
-    write(io, BSON_SUBTYPE_GENERIC)
+    write(io, BSON_SUBTYPE_GENERIC_BINARY)
     write(io, x)
     reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
     x2 = reader["x"][BSONBinary]
     @test x2.data == x
-    @test x2.subtype == BSON_SUBTYPE_GENERIC
+    @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
     x2 = reader["x"][UnsafeBSONBinary]
     @test x2.data == x
-    @test x2.subtype == BSON_SUBTYPE_GENERIC
+    @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
     x2 = reader["x"][Any]
     @test x2 isa BSONBinary
     @test x2.data == x
-    @test x2.subtype == BSON_SUBTYPE_GENERIC
+    @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
 end
 
 @testset "uuid" begin
