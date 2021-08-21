@@ -3,10 +3,12 @@ module LightBSON
 using Dates
 using DecFP
 using Transducers
+using UnsafeArrays
+using UUIDs
 
 export BSONConversionError
 export BSONReader
-export BSONTimestamp, BSONObjectId
+export BSONTimestamp, BSONObjectId, BSONBinary, UnsafeBSONBinary
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
@@ -28,6 +30,14 @@ export BSON_TYPE_DOUBLE,
     BSON_TYPE_INT64,
     BSON_TYPE_DECIMAL128
 
+export BSON_SUBTYPE_GENERIC,
+    BSON_SUBTYPE_FUNCTION,
+    BSON_SUBTYPE_BINARY_OLD,
+    BSON_SUBTYPE_UUID_OLD,
+    BSON_SUBTYPE_UUID,
+    BSON_SUBTYPE_MD5,
+    BSON_SUBTYPE_ENCRYPTED
+
 struct BSONTimestamp
     counter::UInt32
     time::UInt32
@@ -35,6 +45,16 @@ end
 
 struct BSONObjectId
     data::NTuple{12, UInt8}
+end
+
+struct BSONBinary
+    data::Vector{UInt8}
+    subtype::UInt8
+end
+
+struct UnsafeBSONBinary
+    data::UnsafeArray{UInt8, 1}
+    subtype::UInt8
 end
 
 include("type.jl")

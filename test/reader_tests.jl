@@ -20,6 +20,7 @@ end
     @test reader["x"][Float64] == 1.25
     @test reader["x"][Number] == 1.25
     @test reader["x"][AbstractFloat] == 1.25
+    @test reader["x"][Any] == 1.25
 end
 
 @testset "double" begin
@@ -27,6 +28,7 @@ end
     @test reader["x"][Dec128] == d128"1.25"
     @test reader["x"][Number] == d128"1.25"
     @test reader["x"][AbstractFloat] == d128"1.25"
+    @test reader["x"][Any] == d128"1.25"
 end
 
 @testset "int32" begin
@@ -35,6 +37,7 @@ end
     @test reader["x"][Int64] == 123
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
+    @test reader["x"][Any] == 123
 end
 
 @testset "int64" begin
@@ -42,13 +45,16 @@ end
     @test reader["x"][Int64] == 123
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
+    @test reader["x"][Any] == 123
 end
 
 @testset "bool" begin
     reader = BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x1))
     @test reader["x"][Bool] == true
+    @test reader["x"][Any] == true
     reader = BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x0))
     @test reader["x"][Bool] == false
+    @test reader["x"][Any] == false
 end
 
 @testset "datetime" begin
@@ -56,12 +62,14 @@ end
     v = trunc(Int64, datetime2unix(t) * 1000)
     reader = BSONReader(single_field_doc_(BSON_TYPE_DATETIME, v))
     @test reader["x"][DateTime] == t
+    @test reader["x"][Any] == t
 end
 
 @testset "timestamp" begin
     x = BSONTimestamp(1, 2)
     reader = BSONReader(single_field_doc_(BSON_TYPE_TIMESTAMP, x))
     @test reader["x"][BSONTimestamp] == x
+    @test reader["x"][Any] == x
 end
 
 @testset "ObjectId" begin
@@ -72,6 +80,7 @@ end
     ))
     reader = BSONReader(single_field_doc_(BSON_TYPE_OBJECTID, x))
     @test reader["x"][BSONObjectId] == x
+    @test reader["x"][Any] == x
 end
 
 @testset "string" begin
@@ -83,8 +92,40 @@ end
     buf = take!(io)
     reader = BSONReader(single_field_doc_(BSON_TYPE_STRING, buf))
     @test reader["x"][String] == x
+    @test reader["x"][Any] == x
     reader = BSONReader(single_field_doc_(BSON_TYPE_CODE, buf))
     @test reader["x"][String] == x
+    @test reader["x"][Any] == x
+end
+
+@testset "binary" begin
+    x = rand(UInt8, 10)
+    io = IOBuffer()
+    write(io, Int32(length(x)))
+    write(io, BSON_SUBTYPE_GENERIC)
+    write(io, x)
+    reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
+    x2 = reader["x"][BSONBinary]
+    @test x2.data == x
+    @test x2.subtype == BSON_SUBTYPE_GENERIC
+    x2 = reader["x"][UnsafeBSONBinary]
+    @test x2.data == x
+    @test x2.subtype == BSON_SUBTYPE_GENERIC
+    x2 = reader["x"][Any]
+    @test x2 isa BSONBinary
+    @test x2.data == x
+    @test x2.subtype == BSON_SUBTYPE_GENERIC
+end
+
+@testset "uuid" begin
+    x = uuid4()
+    io = IOBuffer()
+    write(io, Int32(16))
+    write(io, BSON_SUBTYPE_UUID)
+    unsafe_write(io, Ref(x), 16)
+    reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
+    @test reader["x"][UUID] == x
+    @test reader["x"][Any] == x
 end
 
 end

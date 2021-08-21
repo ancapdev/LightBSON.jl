@@ -7,6 +7,8 @@ version = "0.1.0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DecFP = "55939f99-70c6-5e9b-8bb0-5071ed7d61fd"
 Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 
 [compat]
 julia = "1"

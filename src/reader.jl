@@ -1,11 +1,12 @@
 # TODO: endian conversion on big-endian arch
-# TODO: wrapper types for datetime (to preserve precision and avoid conversion overhead) and timestamp values
+# TODO: read as Union{Nothing, T} with null support
 struct BSONReader{S <: DenseVector{UInt8}}
     src::S
     offset::Int
     type::UInt8
 end
 
+# TODO: check buffer size against document size on construct
 BSONReader(src::DenseVector{UInt8}) = BSONReader(src, 0, BSON_TYPE_DOCUMENT)
 
 const TYPE_SIZE_TABLE = fill(-1, 256)
@@ -184,6 +185,42 @@ end
     t == BSON_TYPE_OBJECTID ? unsafe_load(Ptr{BSONObjectId}(p)) : nothing
 end
 
+function try_load_field_(::Type{BSONBinary}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_BINARY
+        len = unsafe_load(Ptr{Int32}(p))
+        subtype = unsafe_load(p + 4)
+        dst = Vector{UInt8}(undef, len)
+        GC.@preserve dst unsafe_copyto!(pointer(dst), p + 5, len)
+        BSONBinary(dst, subtype)
+    else
+        nothing
+    end
+end
+
+function try_load_field_(::Type{UnsafeBSONBinary}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_BINARY
+        len = unsafe_load(Ptr{Int32}(p))
+        UnsafeBSONBinary(
+            UnsafeArray(p + 5, (Int(len),)),
+            unsafe_load(p + 4)
+        )
+    else
+        nothing
+    end
+end
+
+function try_load_field_(::Type{UUID}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_BINARY
+        subtype = unsafe_load(p + 4)
+        if subtype == BSON_SUBTYPE_UUID || subtype == BSON_SUBTYPE_UUID_OLD
+            len = unsafe_load(Ptr{Int32}(p))
+            len != 16 && error("Unexpected UUID length $len")
+            return unsafe_load(Ptr{UUID}(p + 5))
+        end
+    end
+    nothing
+end
+
 function try_load_field_(::Type{String}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
         len = Int(unsafe_load(Ptr{Int32}(p)))
@@ -219,9 +256,15 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_ARRAY
         reader[Vector{Any}]
     elseif reader.type == BSON_TYPE_BINARY
-        reader[Vector{UInt8}]
+        x = reader[BSONBinary]
+        data = x.data
+        if x.subtype == BSON_SUBTYPE_UUID || x.subtype == BSON_SUBTYPE_UUID_OLD && length(data) == 16
+            GC.@preserve data unsafe_load(Ptr{UUID}(pointer(data)))
+        else
+            x
+        end
     elseif reader.type == BSON_TYPE_OBJECTID
-        error("not implemented")
+        reader[BSONObjectId]
     elseif reader.type == BSON_TYPE_BOOL
         reader[Bool]
     elseif reader.type == BSON_TYPE_DATETIME
@@ -237,11 +280,11 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_INT32
         reader[Int32]
     elseif reader.type == BSON_TYPE_TIMESTAMP
-        reader[BSONTimeStamp]
+        reader[BSONTimestamp]
     elseif reader.type == BSON_TYPE_INT64
         reader[Int64]
     elseif reader.type == BSON_TYPE_DECIMAL128
-        error("not implemented")
+        reader[Dec128]
     else
         error("Unsupported BSON type $(reader.type)")
     end
