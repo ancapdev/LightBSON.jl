@@ -259,10 +259,8 @@ function Base.getindex(reader::BSONReader, ::Type{Dict{String, Any}})
 end
 
 function Base.getindex(reader::BSONReader, ::Type{Vector{T}}) where T
-    foldxl(reader; init = T[]) do state, (name_p, name_len, field_reader)
-        push!(state, field_reader[T])
-        state
-    end
+    dst = T[]
+    copy!(dst, reader)
 end
 
 function Base.copy!(dst::AbstractArray{T}, reader::BSONReader) where T
