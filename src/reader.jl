@@ -93,7 +93,7 @@ function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol}
     throw(KeyError(target))
 end
 
-function Transducers.__foldl__(rf, val, reader::BSONReader)
+@inline function Transducers.__foldl__(rf, val, reader::BSONReader)
     reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
         ArgumentError("Field access only available on documents and arrays")
     )
@@ -263,6 +263,10 @@ function Base.getindex(reader::BSONReader, ::Type{Vector{T}}) where T
         push!(state, field_reader[T])
         state
     end
+end
+
+function Base.copy!(dst::AbstractArray{T}, reader::BSONReader) where T
+    copy!(Map(@inline x -> x[3][T]), dst, reader)
 end
 
 function Base.getindex(reader::BSONReader, ::Type{Any})
