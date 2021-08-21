@@ -8,7 +8,7 @@ using UUIDs
 
 export BSONConversionError
 export BSONReader
-export BSONTimestamp, BSONObjectId, BSONBinary, UnsafeBSONBinary
+export BSONTimestamp, BSONObjectId, BSONBinary, UnsafeBSONBinary, BSONRegex
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
@@ -55,6 +55,11 @@ end
 struct UnsafeBSONBinary
     data::UnsafeArray{UInt8, 1}
     subtype::UInt8
+end
+
+struct BSONRegex
+    pattern::String
+    options::String
 end
 
 include("type.jl")

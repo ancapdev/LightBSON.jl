@@ -149,6 +149,7 @@ end
     @assert len == length(buf)
     reader = BSONReader(single_field_doc_(BSON_TYPE_ARRAY, buf))
     @test reader["x"][Vector{Any}] == [1.25, Int64(123), true]
+    @test reader["x"][Any] == [1.25, Int64(123), true]
 end
 
 @testset "homogenous array" begin
@@ -172,6 +173,21 @@ end
     @assert len == length(buf)
     reader = BSONReader(single_field_doc_(BSON_TYPE_ARRAY, buf))
     @test reader["x"][Vector{Int64}] == Int64[1, 2, 3]
+end
+
+@testset "regex" begin
+    io = IOBuffer()
+    write(io, "test")
+    write(io, 0x0)
+    write(io, "abc")
+    write(io, 0x0)
+    reader = BSONReader(single_field_doc_(BSON_TYPE_REGEX, take!(io)))
+    x = reader["x"][BSONRegex]
+    @test x.pattern == "test"
+    @test x.options == "abc"
+    x = reader["x"][Any]
+    @test x.pattern == "test"
+    @test x.options == "abc"
 end
 
 end

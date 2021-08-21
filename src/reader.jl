@@ -230,6 +230,18 @@ function try_load_field_(::Type{String}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
+function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_REGEX
+        len1 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p))
+        BSONRegex(
+            unsafe_string(p, len1),
+            unsafe_string(p + len1 + 1)
+        )
+    else
+        nothing
+    end
+end
+
 function Base.getindex(reader::BSONReader, ::Type{T}) where T
     src = reader.src
     GC.@preserve src begin
@@ -279,7 +291,7 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_NULL
         nothing
     elseif reader.type == BSON_TYPE_REGEX
-        error("not implemented")
+        reader[BSONRegex]
     elseif reader.type == BSON_TYPE_CODE
         reader[String]
     elseif reader.type == BSON_TYPE_INT32
