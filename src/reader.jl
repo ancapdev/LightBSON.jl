@@ -246,6 +246,13 @@ function Base.getindex(reader::BSONReader, ::Type{Dict{String, Any}})
     end
 end
 
+function Base.getindex(reader::BSONReader, ::Type{Vector{T}}) where T
+    foldxl(reader; init = T[]) do state, (name_p, name_len, field_reader)
+        push!(state, field_reader[T])
+        state
+    end
+end
+
 function Base.getindex(reader::BSONReader, ::Type{Any})
     if reader.type == BSON_TYPE_DOUBLE
         reader[Float64]
@@ -272,8 +279,6 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_NULL
         nothing
     elseif reader.type == BSON_TYPE_REGEX
-        error("not implemented")
-    elseif reader.type == BSON_TYPE_DB_POINTER
         error("not implemented")
     elseif reader.type == BSON_TYPE_CODE
         reader[String]

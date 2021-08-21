@@ -128,4 +128,50 @@ end
     @test reader["x"][Any] == x
 end
 
+@testset "heterogenous array" begin
+    io = IOBuffer()
+    len = Int32(4 + 11 + 11 + 4 + 1)
+    write(io, len)
+    write(io, BSON_TYPE_DOUBLE)
+    write(io, UInt8('1'))
+    write(io, 0x0)
+    write(io, 1.25)
+    write(io, BSON_TYPE_INT64)
+    write(io, UInt8('2'))
+    write(io, 0x0)
+    write(io, Int64(123))
+    write(io, BSON_TYPE_BOOL)
+    write(io, UInt8('3'))
+    write(io, 0x0)
+    write(io, 0x1)
+    write(io, 0x0)
+    buf = take!(io)
+    @assert len == length(buf)
+    reader = BSONReader(single_field_doc_(BSON_TYPE_ARRAY, buf))
+    @test reader["x"][Vector{Any}] == [1.25, Int64(123), true]
+end
+
+@testset "homogenous array" begin
+    io = IOBuffer()
+    len = Int32(4 + 11 * 3 + 1)
+    write(io, len)
+    write(io, BSON_TYPE_INT64)
+    write(io, UInt8('1'))
+    write(io, 0x0)
+    write(io, Int64(1))
+    write(io, BSON_TYPE_INT64)
+    write(io, UInt8('2'))
+    write(io, 0x0)
+    write(io, Int64(2))
+    write(io, BSON_TYPE_INT64)
+    write(io, UInt8('3'))
+    write(io, 0x0)
+    write(io, Int64(3))
+    write(io, 0x0)
+    buf = take!(io)
+    @assert len == length(buf)
+    reader = BSONReader(single_field_doc_(BSON_TYPE_ARRAY, buf))
+    @test reader["x"][Vector{Int64}] == Int64[1, 2, 3]
+end
+
 end
