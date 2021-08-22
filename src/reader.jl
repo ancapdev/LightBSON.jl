@@ -264,7 +264,7 @@ function Base.getindex(reader::BSONReader, ::Type{Vector{T}}) where T
 end
 
 function Base.copy!(dst::AbstractArray{T}, reader::BSONReader) where T
-    copy!(Map(@inline x -> x[3][T]), dst, reader)
+    copy!(Map(x -> x[3][T]), dst, reader)
 end
 
 function Base.getindex(reader::BSONReader, ::Type{Any})
