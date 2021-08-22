@@ -1,5 +1,7 @@
 module LightBSON
 
+ENDIAN_BOM == 0x04030201 || error("Big-endian architectures are not supported")
+
 using Dates
 using DecFP
 using Transducers
