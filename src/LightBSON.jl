@@ -9,7 +9,7 @@ using UnsafeArrays
 using UUIDs
 
 export BSONConversionError
-export BSONReader
+export BSONReader, BSONWriter
 export BSONTimestamp, BSONObjectId, BSONBinary, UnsafeBSONBinary, BSONRegex
 
 export BSON_TYPE_DOUBLE,
@@ -67,5 +67,6 @@ end
 include("type.jl")
 include("exceptions.jl")
 include("reader.jl")
+include("writer.jl")
 
 end

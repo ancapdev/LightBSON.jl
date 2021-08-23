@@ -1,4 +1,3 @@
-# TODO: endian conversion on big-endian arch
 # TODO: read as Union{Nothing, T} with null support
 struct BSONReader{S <: DenseVector{UInt8}}
     src::S
