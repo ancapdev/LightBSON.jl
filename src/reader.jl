@@ -75,6 +75,35 @@ end
     len
 end
 
+@inline function Transducers.__foldl__(rf, val, reader::BSONReader)
+    reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
+        ArgumentError("Field access only available on documents and arrays")
+    )
+    src = reader.src
+    GC.@preserve src begin
+        p = pointer(reader.src)
+        offset = reader.offset
+        doc_len = Int(unsafe_load(Ptr{Int32}(p + offset)))
+        doc_end = offset + doc_len - 1
+        doc_end > sizeof(src) && error("Invalid document")
+        offset += 4
+        while offset < doc_end
+            el_type = unsafe_load(p, offset + 1)
+            name_p = p + offset + 1
+            name_len = name_len_(name_p)
+            value_len = element_size_(el_type, name_p + name_len)
+            field_reader = BSONReader(src, offset + name_len + 1, el_type)
+            val = Transducers.@next(rf, val, WeakRefString(name_p, name_len - 1) => field_reader)
+            offset += 1 + name_len + value_len
+        end
+        Transducers.complete(rf, val)
+    end
+end
+
+@inline function Base.foreach(f, reader::BSONReader)
+    foreach(f, Map(identity), reader)
+end
+
 function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol})
     reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
         ArgumentError("Field access only available on documents and arrays")
@@ -100,29 +129,11 @@ function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol}
     throw(KeyError(target))
 end
 
-@inline function Transducers.__foldl__(rf, val, reader::BSONReader)
-    reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
-        ArgumentError("Field access only available on documents and arrays")
-    )
-    src = reader.src
-    GC.@preserve src begin
-        p = pointer(reader.src)
-        offset = reader.offset
-        doc_len = Int(unsafe_load(Ptr{Int32}(p + offset)))
-        doc_end = offset + doc_len - 1
-        doc_end > sizeof(src) && error("Invalid document")
-        offset += 4
-        while offset < doc_end
-            el_type = unsafe_load(p, offset + 1)
-            name_p = p + offset + 1
-            name_len = name_len_(name_p)
-            value_len = element_size_(el_type, name_p + name_len)
-            field_reader = BSONReader(src, offset + name_len + 1, el_type)
-            val = Transducers.@next(rf, val, WeakRefString(name_p, name_len - 1) => field_reader)
-            offset += 1 + name_len + value_len
-        end
-        Transducers.complete(rf, val)
-    end
+function Base.getindex(reader::BSONReader, i::Integer)
+    i < 1 && throw(BoundsError(reader, i))
+    el = foldl((_, x) -> reduced(x.second), Drop(i - 1), reader; init = nothing)
+    el === nothing && throw(BoundsError(reader, i))
+    el
 end
 
 @inline function try_load_field_(::Type{Int64}, t::UInt8, p::Ptr{UInt8})
@@ -233,6 +244,15 @@ function try_load_field_(::Type{String}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
         len = Int(unsafe_load(Ptr{Int32}(p)))
         unsafe_string(p + 4, len - 1)
+    else
+        nothing
+    end
+end
+
+@inline function try_load_field_(::Type{WeakRefString{UInt8}}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
+        len = Int(unsafe_load(Ptr{Int32}(p)))
+        WeakRefString(p + 4, len - 1)
     else
         nothing
     end
