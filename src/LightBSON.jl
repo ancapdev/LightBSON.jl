@@ -13,7 +13,7 @@ using WeakRefStrings
 export BSONConversionError
 export BSONReader, BSONWriter
 export BSONIndex, BSONIndexedReader
-export BSONTimestamp, BSONObjectId, BSONBinary, UnsafeBSONBinary, BSONRegex
+export BSONTimestamp, BSONObjectId, BSONBinary, BSONUnsafeBinary, BSONRegex
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
@@ -57,7 +57,7 @@ struct BSONBinary
     subtype::UInt8
 end
 
-struct UnsafeBSONBinary
+struct BSONUnsafeBinary
     data::UnsafeArray{UInt8, 1}
     subtype::UInt8
 end

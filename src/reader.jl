@@ -216,10 +216,10 @@ function try_load_field_(::Type{BSONBinary}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
-function try_load_field_(::Type{UnsafeBSONBinary}, t::UInt8, p::Ptr{UInt8})
+function try_load_field_(::Type{BSONUnsafeBinary}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_BINARY
         len = unsafe_load(Ptr{Int32}(p))
-        UnsafeBSONBinary(
+        BSONUnsafeBinary(
             UnsafeArray(p + 5, (Int(len),)),
             unsafe_load(p + 4)
         )

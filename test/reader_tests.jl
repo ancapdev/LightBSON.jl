@@ -108,7 +108,7 @@ end
     x2 = reader["x"][BSONBinary]
     @test x2.data == x
     @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
-    x2 = reader["x"][UnsafeBSONBinary]
+    x2 = reader["x"][BSONUnsafeBinary]
     @test x2.data == x
     @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
     x2 = reader["x"][Any]
