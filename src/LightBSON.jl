@@ -1,7 +1,5 @@
 module LightBSON
 
-ENDIAN_BOM == 0x04030201 || error("Big-endian architectures are not supported")
-
 using Dates
 using DecFP
 using FNVHash
@@ -47,6 +45,8 @@ struct BSONTimestamp
     counter::UInt32
     time::UInt32
 end
+
+BSONTimestamp(x::UInt64) = BSONTimestamp(x % UInt32, (x >> 32) % UInt32)
 
 struct BSONObjectId
     data::NTuple{12, UInt8}

@@ -18,7 +18,7 @@ function Base.close(writer::BSONWriter)
 end
 
 function Base.setindex!(
-    writer::BSONWriter, value::T, name::AbstractString
+    writer::BSONWriter, value::T, name::String
 ) where T <: Union{
     Float64,
     Int64,
@@ -37,9 +37,13 @@ function Base.setindex!(
     GC.@preserve dst name begin
         p = pointer(dst) + offset
         unsafe_store!(p, bson_type(T))
-        unsafe_copyto!(p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len)
+        unsafe_copyto!(p + 1, pointer(name), name_len)
         unsafe_store!(p + 1 + name_len, 0x0)
-        unsafe_store!(Ptr{T}(p + 2 + name_len), value)
+        if T isa BSONObjectId
+            unsafe_store!(Ptr{T}(p + 2 + name_len), value)
+        else
+            unsafe_store!(Ptr{T}(p + 2 + name_len), htol(value))
+        end
     end
     nothing
 end

@@ -1,13 +1,13 @@
 @testset "Reader" begin
 
-function single_field_doc_(type::UInt8, value)
+function single_field_doc_(type::UInt8, value, endian_convert = true)
     io = IOBuffer()
-    write(io, Int32(4 + 1 + 2 + sizeof(value) + 1))
+    write(io, htol(Int32(4 + 1 + 2 + sizeof(value) + 1)))
     write(io, type)
     write(io, UInt8('x'))
     write(io, 0x0)
     if isbits(value)
-        unsafe_write(io, Ref(value), sizeof(value))
+        unsafe_write(io, Ref(endian_convert ? htol(value) : value), sizeof(value))
     else
         write(io, value)
     end
@@ -78,7 +78,7 @@ end
         0x5, 0x6, 0x7, 0x8,
         0x9, 0xA, 0xB, 0xC,
     ))
-    reader = BSONReader(single_field_doc_(BSON_TYPE_OBJECTID, x))
+    reader = BSONReader(single_field_doc_(BSON_TYPE_OBJECTID, x, false))
     @test reader["x"][BSONObjectId] == x
     @test reader["x"][Any] == x
 end
@@ -86,7 +86,7 @@ end
 @testset "string" begin
     x = "test"
     io = IOBuffer()
-    write(io, Int32(length(x) + 1))
+    write(io, htol(Int32(length(x) + 1)))
     write(io, x)
     write(io, 0x0)
     buf = take!(io)
@@ -101,7 +101,7 @@ end
 @testset "binary" begin
     x = rand(UInt8, 10)
     io = IOBuffer()
-    write(io, Int32(length(x)))
+    write(io, htol(Int32(length(x))))
     write(io, BSON_SUBTYPE_GENERIC_BINARY)
     write(io, x)
     reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
@@ -120,7 +120,7 @@ end
 @testset "uuid" begin
     x = uuid4()
     io = IOBuffer()
-    write(io, Int32(16))
+    write(io, htol(Int32(16)))
     write(io, BSON_SUBTYPE_UUID)
     unsafe_write(io, Ref(x), 16)
     reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
@@ -131,7 +131,7 @@ end
 @testset "heterogenous array" begin
     io = IOBuffer()
     len = Int32(4 + 11 + 11 + 4 + 1)
-    write(io, len)
+    write(io, htol(len))
     write(io, BSON_TYPE_DOUBLE)
     write(io, UInt8('1'))
     write(io, 0x0)
@@ -155,7 +155,7 @@ end
 @testset "homogenous array" begin
     io = IOBuffer()
     len = Int32(4 + 11 * 3 + 1)
-    write(io, len)
+    write(io, htol(len))
     write(io, BSON_TYPE_INT64)
     write(io, UInt8('1'))
     write(io, 0x0)
