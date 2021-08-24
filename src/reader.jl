@@ -1,11 +1,9 @@
-# TODO: read as Union{Nothing, T} with null support
 struct BSONReader{S <: DenseVector{UInt8}}
     src::S
     offset::Int
     type::UInt8
 end
 
-# TODO: check buffer size against document size on construct
 BSONReader(src::DenseVector{UInt8}) = BSONReader(src, 0, BSON_TYPE_DOCUMENT)
 
 const TYPE_SIZE_TABLE = fill(-1, 256)
@@ -68,6 +66,15 @@ Performs byte wise comparison, optimized for short length field names
     (len, false)
 end
 
+@inline function name_len_(field::Ptr{UInt8})
+    len = 1
+    while true
+        unsafe_load(field, len) == 0x0 && break
+        len += 1
+    end
+    len
+end
+
 function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol})
     reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
         ArgumentError("Field access only available on documents and arrays")
@@ -79,6 +86,7 @@ function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol}
         offset = reader.offset
         doc_len = Int(unsafe_load(Ptr{Int32}(p + offset)))
         doc_end = offset + doc_len - 1
+        doc_end > sizeof(src) && error("Invalid document")
         offset += 4
         while offset < doc_end
             el_type = unsafe_load(p, offset + 1)
@@ -102,14 +110,15 @@ end
         offset = reader.offset
         doc_len = Int(unsafe_load(Ptr{Int32}(p + offset)))
         doc_end = offset + doc_len - 1
+        doc_end > sizeof(src) && error("Invalid document")
         offset += 4
         while offset < doc_end
             el_type = unsafe_load(p, offset + 1)
             name_p = p + offset + 1
-            name_len = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), name_p)) + 1
+            name_len = name_len_(name_p)
             value_len = element_size_(el_type, name_p + name_len)
-            field_reader = BSONReader(reader.src, offset + name_len + 1, el_type)
-            val = Transducers.@next(rf, val, (name_p, name_len - 1, field_reader))
+            field_reader = BSONReader(src, offset + name_len + 1, el_type)
+            val = Transducers.@next(rf, val, WeakRefString(name_p, name_len - 1) => field_reader)
             offset += 1 + name_len + value_len
         end
         Transducers.complete(rf, val)
@@ -250,9 +259,13 @@ function Base.getindex(reader::BSONReader, ::Type{T}) where T
     end
 end
 
+@inline function Base.getindex(reader::BSONReader, ::Type{Union{Nothing, T}}) where T
+    reader.type == BSON_TYPE_NULL ? nothing : reader[T]
+end
+
 function Base.getindex(reader::BSONReader, ::Type{Dict{String, Any}})
-    foldxl(reader; init = Dict{String, Any}()) do state, (name_p, name_len, field_reader)
-        state[unsafe_string(name_p, name_len)] = field_reader[Any]
+    foldxl(reader; init = Dict{String, Any}()) do state, x
+        state[String(x.first)] = x.second[Any]
         state
     end
 end
@@ -263,7 +276,7 @@ function Base.getindex(reader::BSONReader, ::Type{Vector{T}}) where T
 end
 
 function Base.copy!(dst::AbstractArray{T}, reader::BSONReader) where T
-    copy!(Map(x -> x[3][T]), dst, reader)
+    copy!(Map(x -> x.second[T]), dst, reader)
 end
 
 function Base.getindex(reader::BSONReader, ::Type{Any})

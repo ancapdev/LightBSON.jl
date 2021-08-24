@@ -32,7 +32,7 @@ function Base.setindex!(
 }
     dst = writer.dst
     offset = length(dst)
-    name_len = length(name)
+    name_len = sizeof(name)
     resize!(dst, offset + 2 + name_len + sizeof(value))
     GC.@preserve dst name begin
         p = pointer(dst) + offset

@@ -4,12 +4,15 @@ ENDIAN_BOM == 0x04030201 || error("Big-endian architectures are not supported")
 
 using Dates
 using DecFP
+using FNVHash
 using Transducers
 using UnsafeArrays
 using UUIDs
+using WeakRefStrings
 
 export BSONConversionError
 export BSONReader, BSONWriter
+export BSONIndex, BSONIndexedReader
 export BSONTimestamp, BSONObjectId, BSONBinary, UnsafeBSONBinary, BSONRegex
 
 export BSON_TYPE_DOUBLE,
@@ -67,6 +70,8 @@ end
 include("type.jl")
 include("exceptions.jl")
 include("reader.jl")
+include("index.jl")
+include("indexed_reader.jl")
 include("writer.jl")
 
 end
