@@ -80,6 +80,8 @@ end
 
 bson_simple(::Type{T}) where T = StructTypes.StructType(T) == StructTypes.NoStructType()
 
+bson_supersimple(::Type{T}) where T = false
+
 include("type.jl")
 include("exceptions.jl")
 include("reader.jl")
