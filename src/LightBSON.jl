@@ -61,10 +61,14 @@ struct BSONBinary
     subtype::UInt8
 end
 
+BSONBinary(data::Vector{UInt8}) = BSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
+
 struct BSONUnsafeBinary
     data::UnsafeArray{UInt8, 1}
     subtype::UInt8
 end
+
+BSONUnsafeBinary(data::Vector{UInt8}) = BSONUnsafeBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
 
 struct BSONRegex
     pattern::String
