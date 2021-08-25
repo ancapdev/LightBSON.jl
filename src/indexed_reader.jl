@@ -12,10 +12,10 @@ struct BSONIndexedReader{R <: BSONReader}
     end    
 end
 
-@inline function Base.getindex(reader::BSONIndexedReader, name::AbstractString)
+@inline function Base.getindex(reader::BSONIndexedReader, name::Union{AbstractString, Symbol})
     src = reader.reader.src
     GC.@preserve src name begin
-        key = BSONIndexKey(pointer(name), sizeof(name) % Int32, reader.reader.offset % Int32)
+        key = BSONIndexKey(name, reader.reader.offset)
         value = reader.index[key]
         field_reader = if value !== nothing
             BSONReader(src, Int(value.offset), value.type)

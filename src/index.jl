@@ -4,6 +4,18 @@ struct BSONIndexKey
     parent_offset::Int32
 end
 
+@inline BSONIndexKey(name::AbstractString, parent_offset::Integer) = BSONIndexKey(
+    pointer(name),
+    sizeof(name) % Int32,
+    parent_offset % Int32
+)
+
+@inline BSONIndexKey(name::Symbol, parent_offset::Integer) = BSONIndexKey(
+    Base.unsafe_convert(Ptr{UInt8}, name),
+    ccall(:strlen, Csize_t, (Cstring,), Base.unsafe_convert(Ptr{UInt8}, name)) % Int32,
+    parent_offset % Int32
+)
+
 @inline function Base.isequal(x::BSONIndexKey, y::BSONIndexKey)
     x.name_len == y.name_len &&
         x.parent_offset == y.parent_offset &&
