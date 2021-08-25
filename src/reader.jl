@@ -258,6 +258,15 @@ end
     end
 end
 
+function try_load_field_(::Type{BSONCode}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_CODE
+        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
+        BSONCode(unsafe_string(p + 4, len - 1))
+    else
+        nothing
+    end
+end
+
 function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_REGEX
         len1 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p))
@@ -327,7 +336,7 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_REGEX
         reader[BSONRegex]
     elseif reader.type == BSON_TYPE_CODE
-        reader[String]
+        reader[BSONCode]
     elseif reader.type == BSON_TYPE_INT32
         reader[Int32]
     elseif reader.type == BSON_TYPE_TIMESTAMP

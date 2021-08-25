@@ -11,7 +11,7 @@ using WeakRefStrings
 export BSONConversionError
 export BSONReader, BSONWriter
 export BSONIndex, BSONIndexedReader
-export BSONTimestamp, BSONObjectId, BSONBinary, BSONUnsafeBinary, BSONRegex
+export BSONTimestamp, BSONObjectId, BSONCode, BSONBinary, BSONUnsafeBinary, BSONRegex
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
@@ -50,6 +50,10 @@ BSONTimestamp(x::UInt64) = BSONTimestamp(x % UInt32, (x >> 32) % UInt32)
 
 struct BSONObjectId
     data::NTuple{12, UInt8}
+end
+
+struct BSONCode
+    code::String
 end
 
 struct BSONBinary
