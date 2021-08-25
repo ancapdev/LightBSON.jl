@@ -95,7 +95,7 @@ end
     @test reader["x"][Any] == x
     reader = BSONReader(single_field_doc_(BSON_TYPE_CODE, buf))
     @test reader["x"][String] == x
-    @test reader["x"][Any] == x
+    @test reader["x"][Any] == BSONCode(x)
 end
 
 @testset "binary" begin
@@ -108,7 +108,7 @@ end
     x2 = reader["x"][BSONBinary]
     @test x2.data == x
     @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
-    x2 = reader["x"][BSONUnsafeBinary]
+    x2 = reader["x"][UnsafeBSONBinary]
     @test x2.data == x
     @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
     x2 = reader["x"][Any]

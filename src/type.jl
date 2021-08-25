@@ -27,3 +27,21 @@ const BSON_SUBTYPE_UUID_OLD = 0x03
 const BSON_SUBTYPE_UUID = 0x04
 const BSON_SUBTYPE_MD5 = 0x05
 const BSON_SUBTYPE_ENCRYPTED = 0x06
+
+const ValueField = Union{
+    Float64,
+    Int64,
+    Int32,
+    Bool,
+    DateTime,
+    Dec128,
+    UUID,
+    String,
+    Nothing,
+    BSONTimestamp,
+    BSONObjectId,
+    BSONBinary,
+    UnsafeBSONBinary,
+    BSONRegex,
+    BSONCode
+}

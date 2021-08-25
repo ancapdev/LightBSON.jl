@@ -1,4 +1,6 @@
-struct BSONReader{S <: DenseVector{UInt8}}
+abstract type AbstractBSONReader end
+
+struct BSONReader{S <: DenseVector{UInt8}} <: AbstractBSONReader
     src::S
     offset::Int
     type::UInt8
@@ -93,7 +95,7 @@ end
             name_len = name_len_(name_p)
             value_len = element_size_(el_type, name_p + name_len)
             field_reader = BSONReader(src, offset + name_len + 1, el_type)
-            val = Transducers.@next(rf, val, WeakRefString(name_p, name_len - 1) => field_reader)
+            val = Transducers.@next(rf, val, UnsafeBSONString(name_p, name_len - 1) => field_reader)
             offset += 1 + name_len + value_len
         end
         Transducers.complete(rf, val)
@@ -158,40 +160,6 @@ end
     t == BSON_TYPE_DECIMAL128 ? ltoh(unsafe_load(Ptr{Dec128}(p))) : nothing
 end
 
-function try_load_field_(::Type{Number}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_DOUBLE
-        ltoh(unsafe_load(Ptr{Float64}(p)))
-    elseif t == BSON_TYPE_INT64
-        ltoh(unsafe_load(Ptr{Int64}(p)))
-    elseif t == BSON_TYPE_INT32
-        ltoh(unsafe_load(Ptr{Int32}(p)))
-    elseif t == BSON_TYPE_DECIMAL128
-        ltoh(unsafe_load(Ptr{Dec128}(p)))
-    else
-        nothing
-    end
-end
-
-function try_load_field_(::Type{Integer}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_INT64
-        ltoh(unsafe_load(Ptr{Int64}(p)))
-    elseif t == BSON_TYPE_INT32
-        ltoh(unsafe_load(Ptr{Int32}(p)))
-    else
-        nothing
-    end
-end
-
-function try_load_field_(::Type{AbstractFloat}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_DOUBLE
-        ltoh(unsafe_load(Ptr{Float64}(p)))
-    elseif t == BSON_TYPE_DECIMAL128
-        ltoh(unsafe_load(Ptr{Dec128}(p)))
-    else
-        nothing
-    end
-end
-
 @inline function try_load_field_(::Type{DateTime}, t::UInt8, p::Ptr{UInt8})
     t == BSON_TYPE_DATETIME ? DateTime(Dates.UTM(Dates.UNIXEPOCH + ltoh(unsafe_load(Ptr{Int64}(p))))) : nothing
 end
@@ -216,10 +184,10 @@ function try_load_field_(::Type{BSONBinary}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
-function try_load_field_(::Type{BSONUnsafeBinary}, t::UInt8, p::Ptr{UInt8})
+function try_load_field_(::Type{UnsafeBSONBinary}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_BINARY
         len = ltoh(unsafe_load(Ptr{Int32}(p)))
-        BSONUnsafeBinary(
+        UnsafeBSONBinary(
             UnsafeArray(p + 5, (Int(len),)),
             unsafe_load(p + 4)
         )
@@ -249,10 +217,10 @@ function try_load_field_(::Type{String}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
-@inline function try_load_field_(::Type{WeakRefString{UInt8}}, t::UInt8, p::Ptr{UInt8})
+@inline function try_load_field_(::Type{UnsafeBSONString}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
         len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
-        WeakRefString(p + 4, len - 1)
+        UnsafeBSONString(p + 4, len - 1)
     else
         nothing
     end
@@ -279,23 +247,7 @@ function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
-function Base.getindex(reader::BSONReader, ::Type{T}) where T <: Union{
-    Float64,
-    Int64,
-    Int32,
-    Bool,
-    DateTime,
-    Dec128,
-    UUID,
-    String,
-    Nothing,
-    BSONTimestamp,
-    BSONObjectId,
-    BSONBinary,
-    BSONUnsafeBinary,
-    BSONRegex,
-    BSONCode
-}
+@inline function Base.getindex(reader::BSONReader, ::Type{T}) where T <: ValueField
     src = reader.src
     GC.@preserve src begin
         x = try_load_field_(T, reader.type, pointer(src) + reader.offset)
@@ -304,27 +256,64 @@ function Base.getindex(reader::BSONReader, ::Type{T}) where T <: Union{
     end
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{Union{Nothing, T}}) where T
-    reader.type == BSON_TYPE_NULL ? nothing : reader[T]
+function Base.getindex(reader::AbstractBSONReader, ::Type{Number})
+    t = reader.type
+    if t == BSON_TYPE_DOUBLE
+        reader[Float64]
+    elseif t == BSON_TYPE_INT64
+        reader[Int64]
+    elseif t == BSON_TYPE_INT32
+        reader[Int32]
+    elseif t == BSON_TYPE_DECIMAL128
+        reader[Dec128]
+    else
+        throw(BSONConversionError(t, Number))
+    end
 end
 
-function Base.getindex(reader::BSONReader, ::Type{Dict{String, Any}})
+function Base.getindex(reader::AbstractBSONReader, ::Type{Integer})
+    t = reader.type
+    if t == BSON_TYPE_INT64
+        reader[Int64]
+    elseif t == BSON_TYPE_INT32
+        reader[Int32]
+    else
+        throw(BSONConversionError(t, Number))
+    end
+end
+
+function Base.getindex(reader::AbstractBSONReader, ::Type{AbstractFloat})
+    t = reader.type
+    if t == BSON_TYPE_DOUBLE
+        reader[Float64]
+    elseif t == BSON_TYPE_DECIMAL128
+        reader[Dec128]
+    else
+        throw(BSONConversionError(t, Number))
+    end
+end
+
+@inline function Base.getindex(reader::AbstractBSONReader, ::Type{Tuple{Nothing, T}}) where T
+    reader.type == BSON_TYPE_NULL ? nothing : reader[T] 
+end
+
+function Base.getindex(reader::AbstractBSONReader, ::Type{Dict{String, Any}})
     foldxl(reader; init = Dict{String, Any}()) do state, x
         state[String(x.first)] = x.second[Any]
         state
     end
 end
 
-function Base.getindex(reader::BSONReader, ::Type{Vector{T}}) where T
+function Base.getindex(reader::AbstractBSONReader, ::Type{Vector{T}}) where T
     dst = T[]
     copy!(dst, reader)
 end
 
-function Base.copy!(dst::AbstractArray{T}, reader::BSONReader) where T
+function Base.copy!(dst::AbstractArray{T}, reader::AbstractBSONReader) where T
     copy!(Map(x -> x.second[T]), dst, reader)
 end
 
-function Base.getindex(reader::BSONReader, ::Type{Any})
+function Base.getindex(reader::AbstractBSONReader, ::Type{Any})
     if reader.type == BSON_TYPE_DOUBLE
         reader[Float64]
     elseif reader.type == BSON_TYPE_STRING
@@ -366,7 +355,7 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
     end
 end
 
-@generated function read_simple_(::Type{T}, reader::Union{BSONReader, BSONIndexedReader}) where T
+@inline @generated function read_simple_(::Type{T}, reader::AbstractBSONReader) where T
     field_readers = map(zip(fieldnames(T), fieldtypes(T))) do (fn, ft)
         fns = string(fn)
         :(reader[$fns][$ft])
@@ -374,7 +363,7 @@ end
     :($T($(field_readers...)))
 end
 
-function Base.getindex(reader::BSONReader, ::Type{T}) where T
+@inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
     if bson_simple(T)
         read_simple_(T, reader)
     else

@@ -36,7 +36,7 @@ bson_type_(::Type{BSONCode}) = BSON_TYPE_CODE
 @inline wire_size_(x::String) = sizeof(x) + 5
 @inline wire_size_(x::BSONCode) = sizeof(x.code) + 5
 @inline wire_size_(x::UUID) = 21
-@inline wire_size_(x::Union{BSONBinary, BSONUnsafeBinary}) = 5 + sizeof(x.data)
+@inline wire_size_(x::Union{BSONBinary, UnsafeBSONBinary}) = 5 + sizeof(x.data)
 @inline wire_size_(x::BSONRegex) = 2 + sizeof(x.pattern) + sizeof(x.options)
 
 @inline wire_store_(p::Ptr{UInt8}, x::T) where T = unsafe_store!(Ptr{T}(p), htol(x))
@@ -60,7 +60,7 @@ end
     unsafe_store!(Ptr{UUID}(p + 5), x)
 end
 
-@inline function wire_store_(p::Ptr{UInt8}, x::Union{BSONBinary, BSONUnsafeBinary})
+@inline function wire_store_(p::Ptr{UInt8}, x::Union{BSONBinary, UnsafeBSONBinary})
     unsafe_store!(Ptr{Int32}(p), sizeof(x.data) % Int32)
     unsafe_store!(p + 4, x.subtype)
     GC.@preserve x unsafe_copyto!(p + 5, pointer(x.data), sizeof(x.data))
@@ -76,25 +76,7 @@ end
 @inline len_(x::AbstractString) = sizeof(x)
 @inline len_(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), Base.unsafe_convert(Ptr{UInt8}, x)) % Int
 
-function Base.setindex!(
-    writer::BSONWriter, value::T, name::Union{String, Symbol}
-) where T <: Union{
-    Float64,
-    Int64,
-    Int32,
-    Bool,
-    DateTime,
-    Dec128,
-    UUID,
-    String,
-    Nothing,
-    BSONTimestamp,
-    BSONObjectId,
-    BSONBinary,
-    BSONUnsafeBinary,
-    BSONRegex,
-    BSONCode
-}
+function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T <: ValueField
     dst = writer.dst
     offset = length(dst)
     name_len = len_(name)

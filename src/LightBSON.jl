@@ -11,8 +11,8 @@ using WeakRefStrings
 
 export BSONConversionError
 export BSONReader, BSONWriter
-export BSONIndex, BSONIndexedReader
-export BSONTimestamp, BSONObjectId, BSONCode, BSONBinary, BSONUnsafeBinary, BSONRegex
+export BSONIndex, IndexedBSONReader
+export BSONTimestamp, BSONObjectId, BSONCode, BSONBinary, UnsafeBSONBinary, BSONRegex, UnsafeBSONString
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
@@ -42,6 +42,8 @@ export BSON_SUBTYPE_GENERIC_BINARY,
     BSON_SUBTYPE_MD5,
     BSON_SUBTYPE_ENCRYPTED
 
+const UnsafeBSONString = WeakRefString{UInt8}
+
 struct BSONTimestamp
     counter::UInt32
     time::UInt32
@@ -64,12 +66,12 @@ end
 
 BSONBinary(data::Vector{UInt8}) = BSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
 
-struct BSONUnsafeBinary
+struct UnsafeBSONBinary
     data::UnsafeArray{UInt8, 1}
     subtype::UInt8
 end
 
-BSONUnsafeBinary(data::Vector{UInt8}) = BSONUnsafeBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
+UnsafeBSONBinary(data::Vector{UInt8}) = UnsafeBSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
 
 struct BSONRegex
     pattern::String
