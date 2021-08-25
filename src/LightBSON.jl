@@ -3,6 +3,7 @@ module LightBSON
 using Dates
 using DecFP
 using FNVHash
+using StructTypes
 using Transducers
 using UnsafeArrays
 using UUIDs
@@ -74,6 +75,8 @@ struct BSONRegex
     pattern::String
     options::String
 end
+
+bson_simple(::Type{T}) where T = StructTypes.StructType(T) == StructTypes.NoStructType()
 
 include("type.jl")
 include("exceptions.jl")

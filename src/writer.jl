@@ -73,8 +73,11 @@ end
     unsafe_store!(p + sizeof(x.pattern) + sizeof(x.options) + 1 , 0x0)
 end
 
+@inline len_(x::AbstractString) = sizeof(x)
+@inline len_(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), Base.unsafe_convert(Ptr{UInt8}, x)) % Int
+
 function Base.setindex!(
-    writer::BSONWriter, value::T, name::String
+    writer::BSONWriter, value::T, name::Union{String, Symbol}
 ) where T <: Union{
     Float64,
     Int64,
@@ -94,28 +97,28 @@ function Base.setindex!(
 }
     dst = writer.dst
     offset = length(dst)
-    name_len = sizeof(name)
+    name_len = len_(name)
     value_len = wire_size_(value)
     resize!(dst, offset + 2 + name_len + value_len)
     GC.@preserve dst name begin
         p = pointer(dst) + offset
         unsafe_store!(p, bson_type_(T))
-        unsafe_copyto!(p + 1, pointer(name), name_len)
+        unsafe_copyto!(p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len)
         unsafe_store!(p + 1 + name_len, 0x0)
         wire_store_(p + 2 + name_len, value)
     end
     nothing
 end
 
-function Base.setindex!(writer::BSONWriter, generator::Function, name::String)
+function Base.setindex!(writer::BSONWriter, generator::Function, name::Union{String, Symbol})
     dst = writer.dst
     offset = length(dst)
-    name_len = sizeof(name)
+    name_len = len_(name)
     resize!(dst, offset + 2 + name_len)
     GC.@preserve dst name begin
         p = pointer(dst) + offset
         unsafe_store!(p, BSON_TYPE_DOCUMENT)
-        unsafe_copyto!(p + 1, pointer(name), name_len)
+        unsafe_copyto!(p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len)
         unsafe_store!(p + 1 + name_len, 0x0)
         element_writer = BSONWriter(dst)
         generator(element_writer)
@@ -126,15 +129,15 @@ end
 
 const SMALL_INDEX_STRINGS = [string(i) for i in 0:99]
 
-function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.Generator}, name::String)
+function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.Generator}, name::Union{String, Symbol})
     dst = writer.dst
     offset = length(dst)
-    name_len = sizeof(name)
+    name_len = len_(name)
     resize!(dst, offset + 2 + name_len)
     GC.@preserve dst name begin
         p = pointer(dst) + offset
         unsafe_store!(p, BSON_TYPE_ARRAY)
-        unsafe_copyto!(p + 1, pointer(name), name_len)
+        unsafe_copyto!(p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len)
         unsafe_store!(p + 1 + name_len, 0x0)
         element_writer = BSONWriter(dst)
         for (i, x) in enumerate(values)
@@ -144,4 +147,27 @@ function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.G
         close(element_writer)
     end
     nothing
+end
+
+function Base.setindex!(writer::BSONWriter, value, name::Union{String, Symbol})
+    writer[name] = field_writer -> field_writer[] = value
+end
+
+@generated function write_simple_(writer::BSONWriter, value::T) where T
+    e = Expr(:block)
+    for fn in fieldnames(T)
+        fns = string(fn)
+        push!(e.args, :(writer[$fns] = value.$fn))
+    end
+    e
+end
+
+function Base.setindex!(writer::BSONWriter, value::T) where T
+    if bson_simple(T)
+        write_simple_(writer, value)
+    else
+        StructTypes.foreachfield(value) do i, name, FT, value
+            writer[name] = value
+        end
+    end
 end

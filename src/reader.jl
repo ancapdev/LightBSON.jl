@@ -279,7 +279,23 @@ function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
-function Base.getindex(reader::BSONReader, ::Type{T}) where T
+function Base.getindex(reader::BSONReader, ::Type{T}) where T <: Union{
+    Float64,
+    Int64,
+    Int32,
+    Bool,
+    DateTime,
+    Dec128,
+    UUID,
+    String,
+    Nothing,
+    BSONTimestamp,
+    BSONObjectId,
+    BSONBinary,
+    BSONUnsafeBinary,
+    BSONRegex,
+    BSONCode
+}
     src = reader.src
     GC.@preserve src begin
         x = try_load_field_(T, reader.type, pointer(src) + reader.offset)
@@ -347,5 +363,21 @@ function Base.getindex(reader::BSONReader, ::Type{Any})
         reader[Dec128]
     else
         error("Unsupported BSON type $(reader.type)")
+    end
+end
+
+@generated function read_simple_(::Type{T}, reader::Union{BSONReader, BSONIndexedReader}) where T
+    field_readers = map(zip(fieldnames(T), fieldtypes(T))) do (fn, ft)
+        fns = string(fn)
+        :(reader[$fns][$ft])
+    end
+    :($T($(field_readers...)))
+end
+
+function Base.getindex(reader::BSONReader, ::Type{T}) where T
+    if bson_simple(T)
+        read_simple_(T, reader)
+    else
+        StructTypes.construct((i, name, FT) -> reader[name][FT], T)
     end
 end
