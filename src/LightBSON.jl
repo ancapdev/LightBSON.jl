@@ -12,7 +12,8 @@ using WeakRefStrings
 export BSONConversionError
 export AbstractBSONReader, BSONReader, BSONWriter, BSONWriteBuffer
 export BSONIndex, IndexedBSONReader
-export BSONTimestamp, BSONObjectId, BSONCode, BSONBinary, UnsafeBSONBinary, BSONRegex, UnsafeBSONString
+export BSONObjectId, BSONObjectIdGenerator
+export BSONTimestamp, BSONCode, BSONBinary, UnsafeBSONBinary, BSONRegex, UnsafeBSONString
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
@@ -55,6 +56,7 @@ bson_simple(::Type{T}) where T = StructTypes.StructType(T) == StructTypes.NoStru
 
 bson_supersimple(::Type{T}) where T = false
 
+include("object_id.jl")
 include("types.jl")
 include("exceptions.jl")
 include("reader.jl")

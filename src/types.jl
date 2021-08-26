@@ -37,10 +37,6 @@ end
 
 BSONTimestamp(x::UInt64) = BSONTimestamp(x % UInt32, (x >> 32) % UInt32)
 
-struct BSONObjectId
-    data::NTuple{12, UInt8}
-end
-
 struct BSONCode
     code::String
 end
