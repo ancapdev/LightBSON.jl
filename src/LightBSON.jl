@@ -10,7 +10,7 @@ using UUIDs
 using WeakRefStrings
 
 export BSONConversionError
-export BSONReader, BSONWriter
+export BSONReader, BSONWriter, BSONWriteBuffer
 export BSONIndex, IndexedBSONReader
 export BSONTimestamp, BSONObjectId, BSONCode, BSONBinary, UnsafeBSONBinary, BSONRegex, UnsafeBSONString
 
@@ -88,5 +88,6 @@ include("reader.jl")
 include("index.jl")
 include("indexed_reader.jl")
 include("writer.jl")
+include("write_buffer.jl")
 
 end

@@ -1,11 +1,11 @@
-struct BSONWriter
-    dst::Vector{UInt8}
+struct BSONWriter{D <: DenseVector{UInt8}}
+    dst::D
     offset::Int
 
-    function BSONWriter(dst::Vector{UInt8})
+    function BSONWriter(dst::D) where D <: DenseVector{UInt8}
         offset = length(dst)
         resize!(dst, offset + 4)
-        new(dst, offset)
+        new{D}(dst, offset)
     end
 end
 
