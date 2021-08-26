@@ -373,7 +373,7 @@ end
         read_v = reader["_v"][typeof(v)]
         read_v != v && error("Mismatched schema version, read: $(read_v), target: $v")
     end
-    if bons_supersimple(T) || bson_simple(T)
+    if bson_supersimple(T) || bson_simple(T)
         bson_read_simple(T, reader)
     else
         bson_read_structtype(T, reader)
