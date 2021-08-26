@@ -355,7 +355,7 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{Any})
     end
 end
 
-@inline @generated function read_simple_(::Type{T}, reader::AbstractBSONReader) where T
+@inline @generated function bson_read_simple(::Type{T}, reader::AbstractBSONReader) where T
     field_readers = map(zip(fieldnames(T), fieldtypes(T))) do (fn, ft)
         fns = string(fn)
         :(reader[$fns][$ft])
@@ -363,10 +363,23 @@ end
     :($T($(field_readers...)))
 end
 
-@inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
-    if bson_simple(T)
-        read_simple_(T, reader)
-    else
-        StructTypes.construct((i, name, FT) -> reader[name][FT], T)
+@inline function bson_read_structtype(::Type{T}, reader::AbstractBSONReader) where T
+    StructTypes.construct((i, name, FT) -> reader[name][FT], T)
+end
+
+@inline function bson_read(::Type{T}, reader::AbstractBSONReader) where T
+    v = bson_schema_version(T)
+    if v !== nothing
+        read_v = reader["_v"][typeof(v)]
+        read_v != v && error("Mismatched schema version, read: $(read_v), target: $v")
     end
+    if bons_supersimple(T) || bson_simple(T)
+        bson_read_simple(T, reader)
+    else
+        bson_read_structtype(T, reader)
+    end
+end
+
+@inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
+    bson_read(T, reader)
 end

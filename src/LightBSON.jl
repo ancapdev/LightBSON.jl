@@ -10,7 +10,7 @@ using UUIDs
 using WeakRefStrings
 
 export BSONConversionError
-export BSONReader, BSONWriter, BSONWriteBuffer
+export AbstractBSONReader, BSONReader, BSONWriter, BSONWriteBuffer
 export BSONIndex, IndexedBSONReader
 export BSONTimestamp, BSONObjectId, BSONCode, BSONBinary, UnsafeBSONBinary, BSONRegex, UnsafeBSONString
 
@@ -41,6 +41,12 @@ export BSON_SUBTYPE_GENERIC_BINARY,
     BSON_SUBTYPE_UUID,
     BSON_SUBTYPE_MD5,
     BSON_SUBTYPE_ENCRYPTED
+
+export bson_simple, bson_supersimple
+export bson_read, bson_read_simple, bson_read_structtype
+export bson_write, bson_write_simple, bson_write_supersimple, bson_write_structtype
+
+bson_schema_version(::Type{T}) where T = nothing
 
 const UnsafeBSONString = WeakRefString{UInt8}
 
