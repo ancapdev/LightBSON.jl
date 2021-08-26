@@ -48,7 +48,7 @@ mutable struct BSONObjectIdGenerator
     cache_pad1::NTuple{4, UInt128}
     seq::UInt32
     rnd::NTuple{5, UInt8}
-    cache_pad::NTuple{4, UInt128}
+    cache_pad2::NTuple{4, UInt128}
 
     function BSONObjectIdGenerator()
         seq = rand(UInt32)
