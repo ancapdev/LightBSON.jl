@@ -256,6 +256,11 @@ end
     end
 end
 
+@inline function Base.getindex(reader::BSONReader, ::Type{Nothing})
+    reader.type == BSON_TYPE_NULL || throw(BSONConversionError(reader.type, T))
+    nothing
+end
+
 function Base.getindex(reader::AbstractBSONReader, ::Type{Number})
     t = reader.type
     if t == BSON_TYPE_DOUBLE
@@ -367,16 +372,27 @@ end
     StructTypes.construct((i, name, FT) -> reader[name][FT], T)
 end
 
-@inline function bson_read(::Type{T}, reader::AbstractBSONReader) where T
-    v = bson_schema_version(T)
-    if v !== nothing
-        read_v = reader["_v"][typeof(v)]
-        read_v != v && error("Mismatched schema version, read: $(read_v), target: $v")
-    end
+@inline function bson_read_unversioned(::Type{T}, reader::AbstractBSONReader) where T
     if bson_supersimple(T) || bson_simple(T)
         bson_read_simple(T, reader)
     else
         bson_read_structtype(T, reader)
+    end
+end
+
+@inline function bson_read_versioned(::Type{T}, v::V, reader::AbstractBSONReader) where {T, V}
+    target = bson_schema_version(T)
+    v != target && error("Mismatched schema version, read: $v, target: $target")
+    bson_read_unversioned(T, reader)
+end
+
+@inline function bson_read(::Type{T}, reader::AbstractBSONReader) where T
+    target_v = bson_schema_version(T)
+    if target_v !== nothing
+        v = reader[bson_schema_version_field(T)][typeof(target_v)]
+        bson_read_versioned(T, v, reader)
+    else
+        bson_read_unversioned(T, reader)
     end
 end
 

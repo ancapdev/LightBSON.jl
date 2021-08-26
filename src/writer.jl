@@ -30,6 +30,7 @@ bson_type_(::Type{BSONTimestamp}) = BSON_TYPE_TIMESTAMP
 bson_type_(::Type{BSONBinary}) = BSON_TYPE_BINARY
 bson_type_(::Type{BSONRegex}) = BSON_TYPE_REGEX
 bson_type_(::Type{BSONCode}) = BSON_TYPE_CODE
+bson_type_(::Type{BSONObjectId}) = BSON_TYPE_OBJECTID
 
 @inline wire_size_(x) = sizeof(x)
 @inline wire_size_(x::Nothing) = 0
@@ -195,7 +196,7 @@ end
 @inline function bson_write(writer::BSONWriter, value::T) where T
     v = bson_schema_version(T)
     if v !== nothing
-        writer["_v"] = v
+        writer[bson_schema_version_field(T)] = v
     end
     if bson_supersimple(T)
         bson_write_supersimple(writer, value)

@@ -23,7 +23,7 @@ end
     @test reader["x"][Any] == 1.25
 end
 
-@testset "double" begin
+@testset "decimal" begin
     reader = BSONReader(single_field_doc_(BSON_TYPE_DECIMAL128, d128"1.25"))
     @test reader["x"][Dec128] == d128"1.25"
     @test reader["x"][Number] == d128"1.25"
