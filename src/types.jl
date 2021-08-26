@@ -28,6 +28,42 @@ const BSON_SUBTYPE_UUID = 0x04
 const BSON_SUBTYPE_MD5 = 0x05
 const BSON_SUBTYPE_ENCRYPTED = 0x06
 
+const UnsafeBSONString = WeakRefString{UInt8}
+
+struct BSONTimestamp
+    counter::UInt32
+    time::UInt32
+end
+
+BSONTimestamp(x::UInt64) = BSONTimestamp(x % UInt32, (x >> 32) % UInt32)
+
+struct BSONObjectId
+    data::NTuple{12, UInt8}
+end
+
+struct BSONCode
+    code::String
+end
+
+struct BSONBinary
+    data::Vector{UInt8}
+    subtype::UInt8
+end
+
+BSONBinary(data::Vector{UInt8}) = BSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
+
+struct UnsafeBSONBinary
+    data::UnsafeArray{UInt8, 1}
+    subtype::UInt8
+end
+
+UnsafeBSONBinary(data::Vector{UInt8}) = UnsafeBSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
+
+struct BSONRegex
+    pattern::String
+    options::String
+end
+
 const ValueField = Union{
     Float64,
     Int64,
