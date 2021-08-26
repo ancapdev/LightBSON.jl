@@ -63,7 +63,9 @@ function build_index_(index::BSONIndex, reader::BSONReader, ::Val{include_arrays
 end
 
 @inline function index_(index::BSONIndex, key::BSONIndexKey)
-    h = fnv1a(UInt32, key.name_p, key.name_len) ⊻ reinterpret(UInt32, key.parent_offset)
+    nh = fnv1a(UInt32, key.name_p, key.name_len)
+    oh = reinterpret(UInt32, key.parent_offset) * 0x9e3779b1
+    h = nh ⊻ (oh + 0x9e3779b9 + (nh << 6) + (nh >> 2))
     (h & index.size_mask) % Int + 1
 end
 
