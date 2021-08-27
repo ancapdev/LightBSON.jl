@@ -105,3 +105,24 @@ const ValueField = Union{
     BSONDBPointer,
     BSONUUIDOld
 }
+
+bson_type_(::Type{Float64}) = BSON_TYPE_DOUBLE
+bson_type_(::Type{Int64}) = BSON_TYPE_INT64
+bson_type_(::Type{Int32}) = BSON_TYPE_INT32
+bson_type_(::Type{Bool}) = BSON_TYPE_BOOL
+bson_type_(::Type{Dec128}) = BSON_TYPE_DECIMAL128
+bson_type_(::Type{UUID}) = BSON_TYPE_BINARY
+bson_type_(::Type{BSONUUIDOld}) = BSON_TYPE_BINARY
+bson_type_(::Type{DateTime}) = BSON_TYPE_DATETIME
+bson_type_(::Type{Nothing}) = BSON_TYPE_NULL
+bson_type_(::Type{String}) = BSON_TYPE_STRING
+bson_type_(::Type{BSONTimestamp}) = BSON_TYPE_TIMESTAMP
+bson_type_(::Type{BSONBinary}) = BSON_TYPE_BINARY
+bson_type_(::Type{BSONRegex}) = BSON_TYPE_REGEX
+bson_type_(::Type{BSONCode}) = BSON_TYPE_CODE
+bson_type_(::Type{BSONSymbol}) = BSON_TYPE_SYMBOL
+bson_type_(::Type{BSONObjectId}) = BSON_TYPE_OBJECTID
+bson_type_(::Type{BSONMinKey}) = BSON_TYPE_MIN_KEY
+bson_type_(::Type{BSONMaxKey}) = BSON_TYPE_MAX_KEY
+bson_type_(::Type{BSONUndefined}) = BSON_TYPE_UNDEFINED
+bson_type_(::Type{BSONDBPointer}) = BSON_TYPE_DB_POINTER

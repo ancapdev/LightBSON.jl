@@ -34,7 +34,6 @@ end
 @testset "int32" begin
     reader = BSONReader(single_field_doc_(BSON_TYPE_INT32, Int32(123)))
     @test reader["x"][Int32] == 123
-    @test reader["x"][Int64] == 123
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
     @test reader["x"][Any] == 123

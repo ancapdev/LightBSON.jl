@@ -23,7 +23,7 @@ end
         key = BSONIndexKey(name, reader.reader.offset)
         value = reader.index[key]
         field_reader = if value !== nothing
-            BSONReader(src, Int(value.offset), value.type)
+            BSONReader(src, Int(value.offset), value.type, reader.reader.validator)
         else
             reader.reader[name]
         end

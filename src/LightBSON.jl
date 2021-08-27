@@ -12,6 +12,7 @@ using WeakRefStrings
 
 export BSONConversionError
 export AbstractBSONReader, BSONReader, BSONWriter, BSONWriteBuffer
+export BSONValidator, StrictBSONValidator, LightBSONValidator, UncheckedBSONValidator
 export BSONIndex, IndexedBSONReader
 export BSONObjectId, BSONObjectIdGenerator
 export BSONTimestamp
@@ -66,6 +67,7 @@ bson_supersimple(::Type{T}) where T = false
 include("object_id.jl")
 include("types.jl")
 include("exceptions.jl")
+include("validator.jl")
 include("reader.jl")
 include("index.jl")
 include("indexed_reader.jl")

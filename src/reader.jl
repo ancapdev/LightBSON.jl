@@ -1,12 +1,18 @@
 abstract type AbstractBSONReader end
 
-struct BSONReader{S <: DenseVector{UInt8}} <: AbstractBSONReader
+struct BSONReader{S <: DenseVector{UInt8}, V <: BSONValidator} <: AbstractBSONReader
     src::S
     offset::Int
     type::UInt8
+    validator::V
 end
 
-BSONReader(src::DenseVector{UInt8}) = BSONReader(src, 0, BSON_TYPE_DOCUMENT)
+@inline function BSONReader(src::DenseVector{UInt8}, validator = LightBSONValidator())
+    validate_root(validator, src)
+    BSONReader(src, 0, BSON_TYPE_DOCUMENT, validator)
+end
+
+@inline Base.pointer(reader::BSONReader) = pointer(reader.src) + reader.offset
 
 const TYPE_SIZE_TABLE = fill(-1, 256)
 TYPE_SIZE_TABLE[BSON_TYPE_DOUBLE] = 8
@@ -92,16 +98,19 @@ end
         offset = reader.offset
         doc_len = Int(ltoh(unsafe_load(Ptr{Int32}(p + offset))))
         doc_end = offset + doc_len - 1
-        doc_end > sizeof(src) && error("Insufficent data for document. Expected $(doc_end - sizeof(src)) more bytes")
         offset += 4
         while offset < doc_end
             el_type = unsafe_load(p, offset + 1)
             name_p = p + offset + 1
             name_len = name_len_(name_p)
-            value_len = element_size_(el_type, name_p + name_len)
-            field_reader = BSONReader(src, offset + name_len + 1, el_type)
+            field_p = name_p + name_len
+            value_len = element_size_(el_type, field_p)
+            field_start = offset + 1 + name_len
+            field_end = field_start + value_len
+            validate_field(reader.validator, el_type, field_p, value_len, doc_end - field_start)
+            field_reader = BSONReader(src, field_start, el_type, reader.validator)
             val = Transducers.@next(rf, val, UnsafeBSONString(name_p, name_len - 1) => field_reader)
-            offset += 1 + name_len + value_len
+            offset = field_end
         end
         Transducers.complete(rf, val)
     end
@@ -122,15 +131,18 @@ function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol}
         offset = reader.offset
         doc_len = Int(ltoh(unsafe_load(Ptr{Int32}(p + offset))))
         doc_end = offset + doc_len - 1
-        doc_end > sizeof(src) && error("Invalid document")
         offset += 4
         while offset < doc_end
             el_type = unsafe_load(p, offset + 1)
             name_p = p + offset + 1
             name_len, name_match = name_len_and_match_(name_p, target_p)
-            value_len = element_size_(el_type, name_p + name_len)
-            name_match && return BSONReader(reader.src, offset + name_len + 1, el_type)
-            offset += 1 + name_len + value_len
+            field_p = name_p + name_len
+            value_len = element_size_(el_type, field_p)
+            field_start = offset + 1 + name_len
+            field_end = field_start + value_len
+            validate_field(reader.validator, el_type, field_p, value_len, doc_end - field_start)
+            name_match && return BSONReader(reader.src, field_start, el_type, reader.validator)
+            offset = field_end
         end
     end
     throw(KeyError(target))
@@ -143,154 +155,134 @@ function Base.getindex(reader::BSONReader, i::Integer)
     el
 end
 
-@inline function try_load_field_(::Type{Int64}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_INT64 && return ltoh(unsafe_load(Ptr{Int64}(p)))
-    t == BSON_TYPE_INT32 && return Int64(ltoh(unsafe_load(Ptr{Int32}(p))))
-    nothing
+@inline load_bits_(::Type{T}, p::Ptr{UInt8}) where T = ltoh(unsafe_load(Ptr{T}(p)))
+@inline load_bits_(::Type{BSONTimestamp}, p::Ptr{UInt8}) = BSONTimestamp(load_bits_(UInt64, p))
+@inline load_bits_(::Type{BSONObjectId}, p::Ptr{UInt8}) = unsafe_load(Ptr{BSONObjectId}(p))
+@inline load_bits_(::Type{DateTime}, p::Ptr{UInt8}) = DateTime(
+    Dates.UTM(Dates.UNIXEPOCH + load_bits_(Int64, p))
+)
+
+@inline function Base.getindex(reader::BSONReader, ::Type{T}) where T <: Union{
+    Int64,
+    Int32,
+    Float64,
+    Dec128,
+    DateTime,
+    BSONTimestamp,
+    BSONObjectId
+}
+    reader.type == bson_type_(T) || throw(BSONConversionError(reader.type, T))
+    GC.@preserve reader load_bits_(T, pointer(reader))
 end
 
-@inline function try_load_field_(::Type{Int32}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_INT32 ? ltoh(unsafe_load(Ptr{Int32}(p))) : nothing
+@inline function Base.getindex(reader::BSONReader, ::Type{Bool})
+    reader.type == BSON_TYPE_BOOL || throw(BSONConversionError(reader.type, Bool))
+    x = GC.@preserve reader unsafe_load(pointer(reader))
+    validate_bool(reader.validator, x)
+    x != 0x0
 end
 
-@inline function try_load_field_(::Type{Bool}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_BOOL ? unsafe_load(p) != 0x0 : nothing
-end
-
-@inline function try_load_field_(::Type{Float64}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_DOUBLE ? ltoh(unsafe_load(Ptr{Float64}(p))) : nothing
-end
-
-@inline function try_load_field_(::Type{Dec128}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_DECIMAL128 ? ltoh(unsafe_load(Ptr{Dec128}(p))) : nothing
-end
-
-@inline function try_load_field_(::Type{DateTime}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_DATETIME ? DateTime(Dates.UTM(Dates.UNIXEPOCH + ltoh(unsafe_load(Ptr{Int64}(p))))) : nothing
-end
-
-@inline function try_load_field_(::Type{BSONTimestamp}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_TIMESTAMP ? BSONTimestamp(ltoh(unsafe_load(Ptr{UInt64}(p)))) : nothing
-end
-
-@inline function try_load_field_(::Type{BSONObjectId}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_OBJECTID ? unsafe_load(Ptr{BSONObjectId}(p)) : nothing
-end
-
-function try_load_field_(::Type{BSONBinary}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_BINARY
-        len = ltoh(unsafe_load(Ptr{Int32}(p)))
+@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONBinary})
+    reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, UnsafeBSONBinary))
+    GC.@preserve reader begin
+        p = pointer(reader)
+        len = load_bits_(Int32, p)
         subtype = unsafe_load(p + 4)
-        dst = Vector{UInt8}(undef, len)
-        GC.@preserve dst unsafe_copyto!(pointer(dst), p + 5, len)
-        BSONBinary(dst, subtype)
-    else
-        nothing
-    end
-end
-
-function try_load_field_(::Type{UnsafeBSONBinary}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_BINARY
-        len = ltoh(unsafe_load(Ptr{Int32}(p)))
+        validate_binary_subtype(reader.validator, p, len, subtype)
         UnsafeBSONBinary(
             UnsafeArray(p + 5, (Int(len),)),
-            unsafe_load(p + 4)
+            subtype
         )
-    else
-        nothing
     end
 end
 
-function try_load_field_(::Type{UUID}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_BINARY
+function Base.getindex(reader::BSONReader, ::Type{BSONBinary})
+    x = reader[UnsafeBSONBinary]
+    GC.@preserve reader BSONBinary(copy(x.data), x.subtype)
+end
+
+@inline function Base.getindex(reader::BSONReader, ::Type{UUID})
+    reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, UUID))
+    GC.@preserve reader begin
+        p = pointer(reader)
         subtype = unsafe_load(p + 4)
-        if subtype == BSON_SUBTYPE_UUID || subtype == BSON_SUBTYPE_UUID_OLD
-            len = ltoh(unsafe_load(Ptr{Int32}(p)))
-            len != 16 && error("Unexpected UUID length $len")
-            return unsafe_load(Ptr{UUID}(p + 5))
-        end
-    end
-    nothing
-end
-
-function try_load_field_(::Type{String}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
-        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
-        unsafe_string(p + 4, len - 1)
-    else
-        nothing
+        subtype == BSON_SUBTYPE_UUID || subtype == BSON_SUBTYPE_UUID_OLD || throw(
+            BSONConversionError(reader.type, subtype, UUID)
+        )
+        len = load_bits_(Int32, p)
+        len != 16 && error("Unexpected UUID length $len")
+        return unsafe_load(Ptr{UUID}(p + 5))
     end
 end
 
-@inline function try_load_field_(::Type{UnsafeBSONString}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
-        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
+@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONString})
+    reader.type == BSON_TYPE_STRING || reader.type == BSON_TYPE_CODE || reader.type == BSON_TYPE_SYMBOL || throw(
+        BSONConversionError(reader.type, UnsafeBSONString)
+    )
+    GC.@preserve reader begin
+        p = pointer(reader)
+        len = Int(load_bits_(Int32, p))
+        validate_string(reader.validator, p + 4, len - 1)
         UnsafeBSONString(p + 4, len - 1)
-    else
-        nothing
     end
 end
 
-function try_load_field_(::Type{BSONCode}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_CODE
-        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
+function Base.getindex(reader::BSONReader, ::Type{String})
+    GC.@preserve reader String(reader[UnsafeBSONString])
+end
+
+function Base.getindex(reader::BSONReader, ::Type{BSONCode})
+    reader.type == BSON_TYPE_CODE || throw(BSONConversionError(reader.type, BSONCode))
+    GC.@preserve reader begin
+        p = pointer(reader)
+        len = Int(load_bits_(Int32, p))
+        validate_string(reader.validator, p + 4, len - 1)
         BSONCode(unsafe_string(p + 4, len - 1))
-    else
-        nothing
     end
 end
 
-function try_load_field_(::Type{BSONSymbol}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_SYMBOL
-        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
-        BSONSymbol(unsafe_string(p + 4, len - 1))
-    else
-        nothing
-    end
+function Base.getindex(reader::BSONReader, ::Type{BSONSymbol})
+    reader.type == BSON_TYPE_SYMBOL || throw(BSONConversionError(reader.type, BSONSymbol))
+    BSONSymbol(reader[String])
 end
 
-function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_REGEX
+function Base.getindex(reader::BSONReader, ::Type{BSONRegex})
+    reader.type == BSON_TYPE_REGEX || throw(BSONConversionError(reader.type, BSONRegex))
+    GC.@preserve reader begin
+        p = pointer(reader)
         len1 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p))
         BSONRegex(
             unsafe_string(p, len1),
             unsafe_string(p + len1 + 1)
         )
-    else
-        nothing
     end
 end
 
-function try_load_field_(::Type{BSONDBPointer}, t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_DB_POINTER
-        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
+function Base.getindex(reader::BSONReader, ::Type{BSONDBPointer})
+    reader.type == BSON_TYPE_DB_POINTER || throw(BSONConversionError(reader.type, BSONMinKey))
+    GC.@preserve reader begin
+        p = pointer(reader)
+        len = Int(load_bits_(Int32, p))
+        validate_string(reader.validator, p + 4, len - 1)
         collection = unsafe_string(p + 4, len - 1)
         ref = unsafe_load(Ptr{BSONObjectId}(p + 4 + len))
         BSONDBPointer(collection, ref)
-    else
-        nothing
     end
 end
 
-@inline function try_load_field_(::Type{BSONMinKey}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_MIN_KEY ? BSONMinKey() : nothing
+@inline function Base.getindex(reader::BSONReader, ::Type{BSONMinKey})
+    reader.type == BSON_TYPE_MIN_KEY || throw(BSONConversionError(reader.type, BSONUndefined))
+    BSONMinKey()
 end
 
-@inline function try_load_field_(::Type{BSONMaxKey}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_MAX_KEY ? BSONMaxKey() : nothing
+@inline function Base.getindex(reader::BSONReader, ::Type{BSONMaxKey})
+    reader.type == BSON_TYPE_MAX_KEY || throw(BSONConversionError(reader.type, BSONUndefined))
+    BSONMaxKey()
 end
 
-@inline function try_load_field_(::Type{BSONUndefined}, t::UInt8, p::Ptr{UInt8})
-    t == BSON_TYPE_UNDEFINED ? BSONUndefined() : nothing
-end
-
-@inline function Base.getindex(reader::BSONReader, ::Type{T}) where T <: ValueField
-    src = reader.src
-    GC.@preserve src begin
-        x = try_load_field_(T, reader.type, pointer(src) + reader.offset)
-        x === nothing && throw(BSONConversionError(reader.type, T))
-        x
-    end
+@inline function Base.getindex(reader::BSONReader, ::Type{BSONUndefined})
+    reader.type == BSON_TYPE_UNDEFINED || throw(BSONConversionError(reader.type, BSONUndefined))
+    BSONUndefined()
 end
 
 @inline function Base.getindex(reader::BSONReader, ::Type{Nothing})
@@ -345,11 +337,12 @@ function Base.getindex(reader::BSONReader, ::Type{BSONCodeWithScope})
     GC.@preserve src begin
         offset = reader.offset
         p = pointer(reader.src) + offset
-        code_len = Int(ltoh(unsafe_load(Ptr{Int32}(p + 4))))
+        code_len = Int(load_bits_(Int32, p + 4))
         doc_offset = offset + code_len + 8
+        validate_string(reader.validator, p + 8, code_len - 1)
         BSONCodeWithScope(
             unsafe_string(p + 8, code_len - 1),
-            BSONReader(src, doc_offset, BSON_TYPE_DOCUMENT)[Dict{String, Any}]
+            BSONReader(src, doc_offset, BSON_TYPE_DOCUMENT, reader.validator)[Dict{String, Any}]
         )
     end
 end
