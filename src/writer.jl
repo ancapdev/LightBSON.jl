@@ -151,6 +151,13 @@ end
     writer[name] = field_writer -> field_writer[] = value
 end
 
+function Base.setindex!(writer::BSONWriter, fields::Dict{String, Any})
+    for (key, value) in fields
+        writer[key] = value
+    end
+    nothing
+end
+
 @inline @generated function bson_write_simple(writer::BSONWriter, value::T) where T
     e = Expr(:block)
     for fn in fieldnames(T)

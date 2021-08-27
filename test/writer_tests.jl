@@ -87,4 +87,13 @@ end
     @test reader["x"]["2"]["b"][Int] == 9
 end
 
+@testset "dict" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    x = Dict{String, Any}("x" => 1, "y" => Dict{String, Any}("a" => 1, "b" => 2))
+    writer[] = x
+    close(writer)
+    @test BSONReader(buf)[Any] == x
+end
+
 end
