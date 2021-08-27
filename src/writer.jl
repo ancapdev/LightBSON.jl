@@ -157,6 +157,16 @@ function Base.setindex!(writer::BSONWriter, fields::AbstractDict{String, Any})
     nothing
 end
 
+@generated function Base.setindex!(writer::BSONWriter, fields::T) where T <: NamedTuple
+    e = Expr(:block)
+    for fn in fieldnames(T)
+        fns = "$fn"
+        push!(e.args, :(writer[$fns] = fields.$fn))
+    end
+    push!(e.args, nothing)
+    e
+end
+
 @inline @generated function bson_write_simple(writer::BSONWriter, value::T) where T
     e = Expr(:block)
     for fn in fieldnames(T)
