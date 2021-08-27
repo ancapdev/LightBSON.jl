@@ -339,6 +339,7 @@ function Base.getindex(reader::BSONReader, ::Type{BSONCodeWithScope})
         p = pointer(reader.src) + offset
         code_len = Int(load_bits_(Int32, p + 4))
         doc_offset = offset + code_len + 8
+        validate_field(reader.validator, BSON_TYPE_CODE, p + 8, code_len, Int(load_bits_(Int32, p)) - 11)
         validate_string(reader.validator, p + 8, code_len - 1)
         BSONCodeWithScope(
             unsafe_string(p + 8, code_len - 1),

@@ -17,9 +17,9 @@ struct StrictBSONValidator <: BSONValidator end
     type::UInt8,
     p::Ptr{UInt8},
     field_length::Integer,
-    available_length::Integer
+    available::Integer
 )
-    field_length > available_length && throw(BSONValidationError("Field length too long, $field_length > $available"))
+    field_length > available && throw(BSONValidationError("Field length too long, $field_length > $available"))
     nothing
 end
 
@@ -28,9 +28,9 @@ end
     type::UInt8,
     p::Ptr{UInt8},
     field_length::Integer,
-    available_length::Integer
+    available::Integer
 )
-    field_length > available_length && throw(BSONValidationError("Field length too long, $field_length > $available"))
+    field_length > available && throw(BSONValidationError("Field length too long, $field_length > $available"))
     if type == BSON_TYPE_DOCUMENT || type == BSON_TYPE_ARRAY
         field_length < 5 && throw(BSONValidationError("Document or array under 5 bytes ($field_length)"))
         unsafe_load(p + field_length - 1) != 0 && throw(BSONValidationError("Document or array missing null terminator"))
