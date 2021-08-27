@@ -2,39 +2,18 @@ struct BSONObjectId
     data::NTuple{12, UInt8}
 end
 
-function nibble_to_int_(x::Char)
-    if x >= '0' && x <= '9'
-        x - '0'
-    elseif x >= 'a' && x <= 'f'
-        x - 'a' + 10
-    elseif x >= 'A' && x <= 'F'
-        x - 'A' + 10
-    else
-        throw(ArgumentError("Invalid hex digit $x"))
-    end
+function BSONObjectId(x::AbstractVector{UInt8})
+    length(x) == 12 || throw(ArgumentError("ObjectId bytes must be 12 long"))
+    BSONObjectId(NTuple{12, UInt8}(x))
 end
 
 function BSONObjectId(s::AbstractString)
     length(s) == 24 || throw(ArgumentError("ObjectId hex string must be 24 characters"))
-    dst = Vector{UInt8}(undef, 12)
-    for i in 1:12
-        hi = nibble_to_int_(s[i*2 - 1]) % UInt8
-        lo = nibble_to_int_(s[i*2]) % UInt8
-        dst[i] = (hi << 4) | lo
-    end
-    BSONObjectId(NTuple{12, UInt8}(dst))
+    BSONObjectId(hex2bytes(s))
 end
 
-const HEX_DIGITS = [
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-]
-
 function Base.show(io::IO, x::BSONObjectId)
-    for i in 1:12
-        print(io, HEX_DIGITS[x.data[i] >> 4 + 1])
-        print(io, HEX_DIGITS[x.data[i] & 0xf + 1])
-    end
+    print(io, bytes2hex(x.data))
     nothing
 end
 
