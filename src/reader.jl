@@ -459,3 +459,11 @@ end
 @inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
     bson_read(T, reader)
 end
+
+@inline @generated function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: NamedTuple
+    field_readers = map(zip(fieldnames(T), fieldtypes(T))) do (fn, ft)
+        fns = string(fn)
+        :(reader[$fns][$ft])
+    end
+    :($T(($(field_readers...),)))
+end
