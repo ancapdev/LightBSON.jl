@@ -17,6 +17,14 @@ WeakRefStrings = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
 
 [compat]
 julia = "1.5"
+DataStructures = "0.18"
+DecFP = "1"
+FNVHash = "0.1"
+JSON3 = "1"
+StructTypes = "1"
+Transducers = "0.4"
+UnsafeArrays = "1"
+WeakRefStrings = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
