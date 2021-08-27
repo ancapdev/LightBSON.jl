@@ -23,6 +23,7 @@ bson_type_(::Type{Int32}) = BSON_TYPE_INT32
 bson_type_(::Type{Bool}) = BSON_TYPE_BOOL
 bson_type_(::Type{Dec128}) = BSON_TYPE_DECIMAL128
 bson_type_(::Type{UUID}) = BSON_TYPE_BINARY
+bson_type_(::Type{BSONUUIDOld}) = BSON_TYPE_BINARY
 bson_type_(::Type{DateTime}) = BSON_TYPE_DATETIME
 bson_type_(::Type{Nothing}) = BSON_TYPE_NULL
 bson_type_(::Type{String}) = BSON_TYPE_STRING
@@ -30,15 +31,26 @@ bson_type_(::Type{BSONTimestamp}) = BSON_TYPE_TIMESTAMP
 bson_type_(::Type{BSONBinary}) = BSON_TYPE_BINARY
 bson_type_(::Type{BSONRegex}) = BSON_TYPE_REGEX
 bson_type_(::Type{BSONCode}) = BSON_TYPE_CODE
+bson_type_(::Type{BSONSymbol}) = BSON_TYPE_SYMBOL
 bson_type_(::Type{BSONObjectId}) = BSON_TYPE_OBJECTID
+bson_type_(::Type{BSONMinKey}) = BSON_TYPE_MIN_KEY
+bson_type_(::Type{BSONMaxKey}) = BSON_TYPE_MAX_KEY
+bson_type_(::Type{BSONUndefined}) = BSON_TYPE_UNDEFINED
+bson_type_(::Type{BSONDBPointer}) = BSON_TYPE_DB_POINTER
 
 @inline wire_size_(x) = sizeof(x)
 @inline wire_size_(x::Nothing) = 0
 @inline wire_size_(x::String) = sizeof(x) + 5
 @inline wire_size_(x::BSONCode) = sizeof(x.code) + 5
+@inline wire_size_(x::BSONSymbol) = sizeof(x.value) + 5
 @inline wire_size_(x::UUID) = 21
+@inline wire_size_(x::BSONUUIDOld) = 21
 @inline wire_size_(x::Union{BSONBinary, UnsafeBSONBinary}) = 5 + sizeof(x.data)
 @inline wire_size_(x::BSONRegex) = 2 + sizeof(x.pattern) + sizeof(x.options)
+@inline wire_size_(x::BSONMinKey) = 0
+@inline wire_size_(x::BSONMaxKey) = 0
+@inline wire_size_(x::BSONUndefined) = 0
+@inline wire_size_(x::BSONDBPointer) = 17 + sizeof(x.collection)
 
 @inline wire_store_(p::Ptr{UInt8}, x::T) where T = unsafe_store!(Ptr{T}(p), htol(x))
 @inline wire_store_(::Ptr{UInt8}, ::Nothing) = nothing
@@ -46,6 +58,9 @@ bson_type_(::Type{BSONObjectId}) = BSON_TYPE_OBJECTID
 @inline wire_store_(p::Ptr{UInt8}, x::DateTime) = wire_store_(p, Dates.value(x) - Dates.UNIXEPOCH)
 @inline wire_store_(p::Ptr{UInt8}, x::BSONTimestamp) = wire_store_(p, (x.counter % Int64) | ((x.time % Int64) << 32))
 @inline wire_store_(p::Ptr{UInt8}, x::BSONObjectId) = unsafe_store!(Ptr{BSONObjectId}(p), x)
+@inline wire_store_(::Ptr{UInt8}, ::BSONMinKey) = nothing
+@inline wire_store_(::Ptr{UInt8}, ::BSONMaxKey) = nothing
+@inline wire_store_(::Ptr{UInt8}, ::BSONUndefined) = nothing
 
 @inline function wire_store_(p::Ptr{UInt8}, x::String)
     unsafe_store!(Ptr{Int32}(p), (sizeof(x) + 1) % Int32)
@@ -55,10 +70,18 @@ end
 
 @inline wire_store_(p::Ptr{UInt8}, x::BSONCode) = wire_store_(p, x.code)
 
+@inline wire_store_(p::Ptr{UInt8}, x::BSONSymbol) = wire_store_(p, x.value)
+
 @inline function wire_store_(p::Ptr{UInt8}, x::UUID)
     unsafe_store!(Ptr{Int32}(p), Int32(16))
     unsafe_store!(p + 4, BSON_SUBTYPE_UUID)
     unsafe_store!(Ptr{UUID}(p + 5), x)
+end
+
+@inline function wire_store_(p::Ptr{UInt8}, x::BSONUUIDOld)
+    unsafe_store!(Ptr{Int32}(p), Int32(16))
+    unsafe_store!(p + 4, BSON_SUBTYPE_UUID_OLD)
+    unsafe_store!(Ptr{UUID}(p + 5), x.value)
 end
 
 @inline function wire_store_(p::Ptr{UInt8}, x::Union{BSONBinary, UnsafeBSONBinary})
@@ -74,84 +97,81 @@ end
     unsafe_store!(p + sizeof(x.pattern) + sizeof(x.options) + 1 , 0x0)
 end
 
+@inline function wire_store_(p::Ptr{UInt8}, x::BSONDBPointer)
+    wire_store_(p, x.collection)
+    unsafe_store!(Ptr{BSONObjectId}(p + 5 + sizeof(x.collection)), x.ref)
+end
+
 @inline len_(x::AbstractString) = sizeof(x)
 @inline len_(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), Base.unsafe_convert(Ptr{UInt8}, x)) % Int
 
-function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T <: ValueField
-    dst = writer.dst
-    offset = length(dst)
+@inline function write_header_(dst::DenseVector{UInt8}, t::UInt8, name::Union{String, Symbol}, value_size::Integer)
     name_len = len_(name)
-    value_len = wire_size_(value)
-    resize!(dst, offset + 2 + name_len + value_len)
-    GC.@preserve dst name begin
+    offset = length(dst)
+    resize!(dst, offset + name_len + value_size + 2)
+    GC.@preserve name dst begin
         p = pointer(dst) + offset
-        unsafe_store!(p, bson_type_(T))
+        unsafe_store!(p, t)
         ccall(
             :memcpy,
             Cvoid,
             (Ptr{UInt8}, Ptr{UInt8}, Csize_t),
             p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len % Csize_t
         )
-        unsafe_store!(p + 1 + name_len, 0x0)
-        wire_store_(p + 2 + name_len, value)
+        unsafe_store!(p + name_len + 1, 0x0)
+    end
+    offset + name_len + 2
+end
+
+function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T <: ValueField
+    dst = writer.dst
+    offset = write_header_(dst, bson_type_(T), name, wire_size_(value))
+    p = pointer(dst) + offset
+    GC.@preserve dst wire_store_(p, value)
+    nothing
+end
+
+function Base.setindex!(writer::BSONWriter, value::BSONCodeWithScope, name::Union{String, Symbol})
+    dst = writer.dst
+    offset = write_header_(dst, BSON_TYPE_CODE_WITH_SCOPE, name, wire_size_(value.code) + 4)
+    GC.@preserve dst begin
+        p = pointer(dst) + offset
+        wire_store_(p + 4, value.code)
+        mappings_writer = BSONWriter(dst)
+        mappings_writer[] = value.mappings
+        close(mappings_writer)
+        p = pointer(dst) + offset
+        unsafe_store!(Ptr{Int32}(p), length(dst) - offset)
     end
     nothing
 end
 
 function Base.setindex!(writer::BSONWriter, generator::Function, name::Union{String, Symbol})
     dst = writer.dst
-    offset = length(dst)
-    name_len = len_(name)
-    resize!(dst, offset + 2 + name_len)
-    GC.@preserve dst name begin
-        p = pointer(dst) + offset
-        unsafe_store!(p, BSON_TYPE_DOCUMENT)
-        ccall(
-            :memcpy,
-            Cvoid,
-            (Ptr{UInt8}, Ptr{UInt8}, Csize_t),
-            p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len % Csize_t
-        )
-        unsafe_store!(p + 1 + name_len, 0x0)
-        element_writer = BSONWriter(dst)
-        generator(element_writer)
-        close(element_writer)
-    end
-    nothing
+    write_header_(dst, BSON_TYPE_DOCUMENT, name, 0)
+    element_writer = BSONWriter(dst)
+    generator(element_writer)
+    close(element_writer)
 end
 
 const SMALL_INDEX_STRINGS = [string(i) for i in 0:99]
 
 function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.Generator}, name::Union{String, Symbol})
     dst = writer.dst
-    offset = length(dst)
-    name_len = len_(name)
-    resize!(dst, offset + 2 + name_len)
-    GC.@preserve dst name begin
-        p = pointer(dst) + offset
-        unsafe_store!(p, BSON_TYPE_ARRAY)
-        ccall(
-            :memcpy,
-            Cvoid,
-            (Ptr{UInt8}, Ptr{UInt8}, Csize_t),
-            p + 1, Base.unsafe_convert(Ptr{UInt8}, name), name_len % Csize_t
-        )
-        unsafe_store!(p + 1 + name_len, 0x0)
-        element_writer = BSONWriter(dst)
-        for (i, x) in enumerate(values)
-            is = i <= length(SMALL_INDEX_STRINGS) ? SMALL_INDEX_STRINGS[i] : string(i - 1)
-            element_writer[is] = x
-        end
-        close(element_writer)
+    write_header_(dst, BSON_TYPE_ARRAY, name, 0)
+    element_writer = BSONWriter(dst)
+    for (i, x) in enumerate(values)
+        is = i <= length(SMALL_INDEX_STRINGS) ? SMALL_INDEX_STRINGS[i] : string(i - 1)
+        element_writer[is] = x
     end
-    nothing
+    close(element_writer)
 end
 
 @inline function Base.setindex!(writer::BSONWriter, value, name::Union{String, Symbol})
     writer[name] = field_writer -> field_writer[] = value
 end
 
-function Base.setindex!(writer::BSONWriter, fields::Dict{String, Any})
+function Base.setindex!(writer::BSONWriter, fields::AbstractDict{String, Any})
     for (key, value) in fields
         writer[key] = value
     end

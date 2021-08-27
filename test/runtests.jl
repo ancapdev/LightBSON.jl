@@ -1,5 +1,7 @@
+using DataStructures
 using Dates
 using DecFP
+using JSON3
 using LightBSON
 using Test
 using UUIDs
@@ -11,4 +13,5 @@ using UUIDs
     include("write_buffer_tests.jl")
     include("writer_tests.jl")
     include("struct_tests.jl")
+    include("corpus_tests.jl")
 end

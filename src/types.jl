@@ -41,6 +41,11 @@ struct BSONCode
     code::String
 end
 
+struct BSONCodeWithScope
+    code::String
+    mappings::Dict{String, Any}
+end
+
 struct BSONBinary
     data::Vector{UInt8}
     subtype::UInt8
@@ -60,6 +65,23 @@ struct BSONRegex
     options::String
 end
 
+struct BSONSymbol
+    value::String
+end
+
+struct BSONDBPointer
+    collection::String
+    ref::BSONObjectId
+end
+
+struct BSONUUIDOld
+    value::UUID
+end
+
+struct BSONMinKey end
+struct BSONMaxKey end
+struct BSONUndefined end
+
 const ValueField = Union{
     Float64,
     Int64,
@@ -75,5 +97,11 @@ const ValueField = Union{
     BSONBinary,
     UnsafeBSONBinary,
     BSONRegex,
-    BSONCode
+    BSONCode,
+    BSONSymbol,
+    BSONMinKey,
+    BSONMaxKey,
+    BSONUndefined,
+    BSONDBPointer,
+    BSONUUIDOld
 }

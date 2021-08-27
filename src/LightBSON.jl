@@ -1,5 +1,6 @@
 module LightBSON
 
+using DataStructures
 using Dates
 using DecFP
 using FNVHash
@@ -13,7 +14,13 @@ export BSONConversionError
 export AbstractBSONReader, BSONReader, BSONWriter, BSONWriteBuffer
 export BSONIndex, IndexedBSONReader
 export BSONObjectId, BSONObjectIdGenerator
-export BSONTimestamp, BSONCode, BSONBinary, UnsafeBSONBinary, BSONRegex, UnsafeBSONString
+export BSONTimestamp
+export BSONCode, BSONCodeWithScope, BSONSymbol
+export BSONBinary, UnsafeBSONBinary
+export BSONRegex, UnsafeBSONString
+export BSONMinKey, BSONMaxKey
+export BSONUndefined
+export BSONUUIDOld
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,

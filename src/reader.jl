@@ -16,13 +16,16 @@ TYPE_SIZE_TABLE[BSON_TYPE_TIMESTAMP] = 8
 TYPE_SIZE_TABLE[BSON_TYPE_INT32] = 4
 TYPE_SIZE_TABLE[BSON_TYPE_BOOL] = 1
 TYPE_SIZE_TABLE[BSON_TYPE_NULL] = 0
+TYPE_SIZE_TABLE[BSON_TYPE_UNDEFINED] = 0
 TYPE_SIZE_TABLE[BSON_TYPE_DECIMAL128] = 16
 TYPE_SIZE_TABLE[BSON_TYPE_OBJECTID] = 12
+TYPE_SIZE_TABLE[BSON_TYPE_MIN_KEY] = 0
+TYPE_SIZE_TABLE[BSON_TYPE_MAX_KEY] = 0
 
 function element_size_variable_(t::UInt8, p::Ptr{UInt8})
-    if t == BSON_TYPE_DOCUMENT || t == BSON_TYPE_ARRAY
+    if t == BSON_TYPE_DOCUMENT || t == BSON_TYPE_ARRAY || t == BSON_TYPE_CODE_WITH_SCOPE
         Int(ltoh(unsafe_load(Ptr{Int32}(p))))
-    elseif t == BSON_TYPE_STRING || t == BSON_TYPE_CODE
+    elseif t == BSON_TYPE_STRING || t == BSON_TYPE_CODE || t == BSON_TYPE_SYMBOL
         Int(ltoh(unsafe_load(Ptr{Int32}(p)))) + 4
     elseif t == BSON_TYPE_BINARY
         Int(ltoh(unsafe_load(Ptr{Int32}(p)))) + 5
@@ -30,6 +33,8 @@ function element_size_variable_(t::UInt8, p::Ptr{UInt8})
         len1 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p)) + 1
         len2 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p + len1)) + 1
         len1 + len2
+    elseif t == BSON_TYPE_DB_POINTER
+        Int(ltoh(unsafe_load(Ptr{Int32}(p)))) + 16
     else
         error("Unsupported BSON type $t")
     end
@@ -87,7 +92,7 @@ end
         offset = reader.offset
         doc_len = Int(ltoh(unsafe_load(Ptr{Int32}(p + offset))))
         doc_end = offset + doc_len - 1
-        doc_end > sizeof(src) && error("Invalid document")
+        doc_end > sizeof(src) && error("Insufficent data for document. Expected $(doc_end - sizeof(src)) more bytes")
         offset += 4
         while offset < doc_end
             el_type = unsafe_load(p, offset + 1)
@@ -235,6 +240,15 @@ function try_load_field_(::Type{BSONCode}, t::UInt8, p::Ptr{UInt8})
     end
 end
 
+function try_load_field_(::Type{BSONSymbol}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_SYMBOL
+        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
+        BSONSymbol(unsafe_string(p + 4, len - 1))
+    else
+        nothing
+    end
+end
+
 function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
     if t == BSON_TYPE_REGEX
         len1 = unsafe_trunc(Int, ccall(:strlen, Csize_t, (Cstring,), p))
@@ -245,6 +259,29 @@ function try_load_field_(::Type{BSONRegex}, t::UInt8, p::Ptr{UInt8})
     else
         nothing
     end
+end
+
+function try_load_field_(::Type{BSONDBPointer}, t::UInt8, p::Ptr{UInt8})
+    if t == BSON_TYPE_DB_POINTER
+        len = Int(ltoh(unsafe_load(Ptr{Int32}(p))))
+        collection = unsafe_string(p + 4, len - 1)
+        ref = unsafe_load(Ptr{BSONObjectId}(p + 4 + len))
+        BSONDBPointer(collection, ref)
+    else
+        nothing
+    end
+end
+
+@inline function try_load_field_(::Type{BSONMinKey}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_MIN_KEY ? BSONMinKey() : nothing
+end
+
+@inline function try_load_field_(::Type{BSONMaxKey}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_MAX_KEY ? BSONMaxKey() : nothing
+end
+
+@inline function try_load_field_(::Type{BSONUndefined}, t::UInt8, p::Ptr{UInt8})
+    t == BSON_TYPE_UNDEFINED ? BSONUndefined() : nothing
 end
 
 @inline function Base.getindex(reader::BSONReader, ::Type{T}) where T <: ValueField
@@ -302,8 +339,23 @@ end
     reader.type == BSON_TYPE_NULL ? nothing : reader[T] 
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{Dict{String, Any}})
-    foldxl(reader; init = Dict{String, Any}()) do state, x
+function Base.getindex(reader::BSONReader, ::Type{BSONCodeWithScope})
+    reader.type == BSON_TYPE_CODE_WITH_SCOPE || throw(BSONConversionError(reader.type, BSONCodeWithScope))
+    src = reader.src
+    GC.@preserve src begin
+        offset = reader.offset
+        p = pointer(reader.src) + offset
+        code_len = Int(ltoh(unsafe_load(Ptr{Int32}(p + 4))))
+        doc_offset = offset + code_len + 8
+        BSONCodeWithScope(
+            unsafe_string(p + 8, code_len - 1),
+            BSONReader(src, doc_offset, BSON_TYPE_DOCUMENT)[Dict{String, Any}]
+        )
+    end
+end
+
+function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{String, Any}
+    foldxl(reader; init = T()) do state, x
         state[String(x.first)] = x.second[Any]
         state
     end
@@ -324,14 +376,16 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_STRING
         reader[String]
     elseif reader.type == BSON_TYPE_DOCUMENT
-        reader[Dict{String, Any}]
+        reader[OrderedDict{String, Any}]
     elseif reader.type == BSON_TYPE_ARRAY
         reader[Vector{Any}]
     elseif reader.type == BSON_TYPE_BINARY
         x = reader[BSONBinary]
         data = x.data
-        if x.subtype == BSON_SUBTYPE_UUID || x.subtype == BSON_SUBTYPE_UUID_OLD && length(data) == 16
+        if x.subtype == BSON_SUBTYPE_UUID && length(data) == 16
             GC.@preserve data unsafe_load(Ptr{UUID}(pointer(data)))
+        elseif x.subtype == BSON_SUBTYPE_UUID_OLD && length(data) == 16
+            GC.@preserve data BSONUUIDOld(unsafe_load(Ptr{UUID}(pointer(data))))
         else
             x
         end
@@ -347,6 +401,8 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{Any})
         reader[BSONRegex]
     elseif reader.type == BSON_TYPE_CODE
         reader[BSONCode]
+    elseif reader.type == BSON_TYPE_SYMBOL
+        reader[BSONSymbol]
     elseif reader.type == BSON_TYPE_INT32
         reader[Int32]
     elseif reader.type == BSON_TYPE_TIMESTAMP
@@ -355,6 +411,16 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{Any})
         reader[Int64]
     elseif reader.type == BSON_TYPE_DECIMAL128
         reader[Dec128]
+    elseif reader.type == BSON_TYPE_MIN_KEY
+        reader[BSONMinKey]
+    elseif reader.type == BSON_TYPE_MAX_KEY
+        reader[BSONMaxKey]
+    elseif reader.type == BSON_TYPE_UNDEFINED
+        reader[BSONUndefined]
+    elseif reader.type == BSON_TYPE_CODE_WITH_SCOPE
+        reader[BSONCodeWithScope]
+    elseif reader.type == BSON_TYPE_DB_POINTER
+        reader[BSONDBPointer]
     else
         error("Unsupported BSON type $(reader.type)")
     end
