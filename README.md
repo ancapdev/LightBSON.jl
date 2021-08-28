@@ -159,7 +159,7 @@ x.subtype # BSON_SUBTYPE_GENERIC_BINARY
 ```
 
 ### Iteration
-Fields can be iterated with `foreach()` or using the [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl) APIs. Fields are represented at `Pair{UnsafeBSONString, BSONReader}`.
+Fields can be iterated with `foreach()` or using the [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl) APIs. Fields are represented as `Pair{UnsafeBSONString, BSONReader}`.
 ```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
