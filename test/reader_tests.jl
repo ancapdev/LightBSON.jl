@@ -189,4 +189,35 @@ end
     @test x.options == "abc"
 end
 
+@testset "conversion error $T" for T in [
+    Float64,
+    Int64,
+    Int32,
+    Bool,
+    DateTime,
+    Dec128,
+    UUID,
+    String,
+    Nothing,
+    BSONTimestamp,
+    BSONObjectId,
+    BSONBinary,
+    UnsafeBSONBinary,
+    BSONRegex,
+    BSONCode,
+    BSONSymbol,
+    BSONMinKey,
+    BSONMaxKey,
+    BSONUndefined,
+    BSONDBPointer,
+    BSONUUIDOld
+]
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer["x"] = T == Int64 ? 1.25 : Int64(123)
+    close(writer)
+    reader = BSONReader(buf)
+    @test_throws BSONConversionError(T == Int64 ? BSON_TYPE_DOUBLE : BSON_TYPE_INT64, T) reader["x"][T]
+end
+
 end

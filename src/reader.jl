@@ -182,8 +182,7 @@ end
     x != 0x0
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONBinary})
-    reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, UnsafeBSONBinary))
+@inline function read_binary_(reader::BSONReader)
     GC.@preserve reader begin
         p = pointer(reader)
         len = load_bits_(Int32, p)
@@ -196,8 +195,14 @@ end
     end
 end
 
+@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONBinary})
+    reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, UnsafeBSONBinary))
+    read_binary_(reader)
+end
+
 function Base.getindex(reader::BSONReader, ::Type{BSONBinary})
-    x = reader[UnsafeBSONBinary]
+    reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, BSONBinary))
+    x = read_binary_(reader)
     GC.@preserve reader BSONBinary(copy(x.data), x.subtype)
 end
 
@@ -215,10 +220,19 @@ end
     end
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONString})
-    reader.type == BSON_TYPE_STRING || reader.type == BSON_TYPE_CODE || reader.type == BSON_TYPE_SYMBOL || throw(
-        BSONConversionError(reader.type, UnsafeBSONString)
-    )
+@inline function Base.getindex(reader::BSONReader, ::Type{BSONUUIDOld})
+    reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, BSONUUIDOld))
+    GC.@preserve reader begin
+        p = pointer(reader)
+        subtype = unsafe_load(p + 4)
+        subtype == BSON_SUBTYPE_UUID_OLD || throw(BSONConversionError(reader.type, subtype, BSONUUIDOld))
+        len = load_bits_(Int32, p)
+        len != 16 && error("Unexpected UUID length $len")
+        return BSONUUIDOld(unsafe_load(Ptr{UUID}(p + 5)))
+    end
+end
+
+@inline function read_string_(reader::BSONReader)
     GC.@preserve reader begin
         p = pointer(reader)
         len = Int(load_bits_(Int32, p))
@@ -227,8 +241,18 @@ end
     end
 end
 
+@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONString})
+    reader.type == BSON_TYPE_STRING || reader.type == BSON_TYPE_CODE || reader.type == BSON_TYPE_SYMBOL || throw(
+        BSONConversionError(reader.type, UnsafeBSONString)
+    )
+    read_string_(reader)
+end
+
 function Base.getindex(reader::BSONReader, ::Type{String})
-    GC.@preserve reader String(reader[UnsafeBSONString])
+    reader.type == BSON_TYPE_STRING || reader.type == BSON_TYPE_CODE || reader.type == BSON_TYPE_SYMBOL || throw(
+        BSONConversionError(reader.type, String)
+    )
+    GC.@preserve reader String(read_string_(reader))
 end
 
 function Base.getindex(reader::BSONReader, ::Type{BSONCode})
@@ -259,7 +283,7 @@ function Base.getindex(reader::BSONReader, ::Type{BSONRegex})
 end
 
 function Base.getindex(reader::BSONReader, ::Type{BSONDBPointer})
-    reader.type == BSON_TYPE_DB_POINTER || throw(BSONConversionError(reader.type, BSONMinKey))
+    reader.type == BSON_TYPE_DB_POINTER || throw(BSONConversionError(reader.type, BSONDBPointer))
     GC.@preserve reader begin
         p = pointer(reader)
         len = Int(load_bits_(Int32, p))
@@ -271,12 +295,12 @@ function Base.getindex(reader::BSONReader, ::Type{BSONDBPointer})
 end
 
 @inline function Base.getindex(reader::BSONReader, ::Type{BSONMinKey})
-    reader.type == BSON_TYPE_MIN_KEY || throw(BSONConversionError(reader.type, BSONUndefined))
+    reader.type == BSON_TYPE_MIN_KEY || throw(BSONConversionError(reader.type, BSONMinKey))
     BSONMinKey()
 end
 
 @inline function Base.getindex(reader::BSONReader, ::Type{BSONMaxKey})
-    reader.type == BSON_TYPE_MAX_KEY || throw(BSONConversionError(reader.type, BSONUndefined))
+    reader.type == BSON_TYPE_MAX_KEY || throw(BSONConversionError(reader.type, BSONMaxKey))
     BSONMaxKey()
 end
 
@@ -286,7 +310,7 @@ end
 end
 
 @inline function Base.getindex(reader::BSONReader, ::Type{Nothing})
-    reader.type == BSON_TYPE_NULL || throw(BSONConversionError(reader.type, T))
+    reader.type == BSON_TYPE_NULL || throw(BSONConversionError(reader.type, Nothing))
     nothing
 end
 

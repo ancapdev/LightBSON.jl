@@ -22,6 +22,7 @@ export BSONRegex, UnsafeBSONString
 export BSONMinKey, BSONMaxKey
 export BSONUndefined
 export BSONUUIDOld
+export BSONDBPointer
 
 export BSON_TYPE_DOUBLE,
     BSON_TYPE_STRING,
