@@ -23,6 +23,8 @@ end
     x3 = BSONObjectId()
     @test string(x1) < string(x2)
     @test string(x2) < string(x3)
+    @test now(UTC) - DateTime(x1) < Minute(5)
+    @test time() - time(x1) < 5*60
 end
 
 end
