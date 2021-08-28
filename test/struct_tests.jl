@@ -3,14 +3,20 @@ struct SuperSimple
     y::Float64
 end
 
+LightBSON.bson_supersimple(::Type{SuperSimple}) = true
+
 struct NestedSimple
     x::Int64
 end
+
+LightBSON.bson_supersimple(::Type{NestedSimple}) = true
 
 struct Simple
     x::String
     y::NestedSimple
 end
+
+LightBSON.bson_simple(::Type{Simple}) = true
 
 struct Evolved1
     x::Int64
