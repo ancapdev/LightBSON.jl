@@ -2,7 +2,12 @@ mutable struct BSONWriteBuffer <: DenseVector{UInt8}
     data::Vector{UInt8}
     len::Int
 
-    BSONWriteBuffer(capacity::Integer) = new(Vector{UInt8}(undef, capacity), 0)
+    BSONWriteBuffer() = new(UInt8[], 0)
+end
+
+function Base.sizehint!(buffer::BSONWriteBuffer, capacity::Integer)
+    resize!(buffer.data, max(capacity, buffer.len))
+    buffer
 end
 
 @inline function Base.empty!(buffer::BSONWriteBuffer)
@@ -33,7 +38,7 @@ end
 
 @inline function Base.push!(buffer::BSONWriteBuffer, x::UInt8)
     if length(buffer.data) == buffer.len
-        resize!(buffer.data, buffer.len * 2)
+        resize!(buffer.data, max(buffer.len * 2, 10))
     end
     buffer.len += 1
     @inbounds buffer.data[buffer.len] = x
