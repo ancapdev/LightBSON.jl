@@ -22,7 +22,7 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 * Conversion to and from [Extended JSON](https://docs.mongodb.com/manual/reference/mongodb-extended-json/). This may be added later.
 
 ## Basic Usage
-* Documents are read and write to and from byte arrays with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl).
+* Documents are read and written to and from byte arrays with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl).
 * [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl) are immutable struct types with no state. They can be instantiated without allocation.
 * [BSONWriter](src.writer.jl) will append to the destination array. User is responsible for not writing duplicate fields.
 * `reader["foo"]` or `reader[:foo]` finds `foo` and returns a new reader pointing to the field.
