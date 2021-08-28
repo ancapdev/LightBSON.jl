@@ -172,7 +172,7 @@ foreach(x -> println(x.second[Int64]), reader) # 1\n2\n3\n
 ```
 
 ### High Level API
-High level functions `bson_read()` and `bson_write()` provide convenience simple or less performance sensitive use cases. Some example usage here, see method help for full descriptions.
+High level functions `bson_read()` and `bson_write()` provide convenience for simple or less performance sensitive use cases. Some example usage here, see method help for full descriptions.
 ```Julia
 buf = bson_write(UInt8[], :x => Int64(1), :y => Int64(2))
 bson_read(buf)
