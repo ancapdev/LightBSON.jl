@@ -29,9 +29,10 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 * `reader[T]` materializes a field to the type `T`.
 * `writer["foo"] = x` or `writer[:foo] = x` appends a field with name `foo` and value `x`.
 * `close(writer)` finalizes a document (writes the document length and terminating null byte).
+* Prefer strings for field names. Symbols in Julia unfortunately do not have a constant time length API.
 
 ### Example
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = Int64(123)
@@ -40,9 +41,9 @@ reader = BSONReader(buf)
 reader["x"][Int64] # 123
 ```
 
-## Nested Documents
+### Nested Documents
 Nested documents are written by assigning a field with a function that takes a nested writer. Nested fields are read by index.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = nested_writer -> begin
@@ -55,9 +56,9 @@ reader["x"]["a"][Int64] # 1
 reader["x"]["b"][Int64] # 2
 ```
 
-## Arrays
+### Arrays
 Arrays are written by assigning array values, or by generators. Arrays can be materialized to Julia arrays, or be accessed by index.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = Int64[1, 2, 3]
@@ -70,9 +71,9 @@ reader["x"][2][Int64] # 2
 reader["y"][2][Int64] # 4
 ```
 
-## Read as Dict or Any
+### Read as Dict or Any
 Where performance is not a concern, elements can be materialized to a dictionaries (recursively) or the most appropriate Julia type for leaf fields.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = Int64(1)
@@ -86,9 +87,9 @@ reader["x"][Any] # 1
 reader["y"][Any] # "foo"
 ```
 
-## Arrays With Nested Documents
+### Arrays With Nested Documents
 Generators can be used to directly write nested documents in arrays.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = (
@@ -104,9 +105,9 @@ reader["x"][Vector{Any}] # Any[OrderedDict{String, Any}("a" => 1, "b" => 1), Ord
 reader["x"][3]["b"][Int64] # 9
 ```
 
-## Read Abstract Types
+### Read Abstract Types
 The abstract types `Number`, `Integer`, and `AbstractFloat` can be used to materialize numeric fields to the most appropriate Julia constrained under the abstract type.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = Int32(123)
@@ -119,9 +120,9 @@ reader["y"][Number] # 1.25
 reader["y"][AbstractFloat] # 1.25
 ```
 
-## Unsafe String
+### Unsafe String
 String fields can be materialized as `WeakRefString{UInt8}`, aliased as `UnsafeBSONString`. This will create a string object with pointers to the underlying buffer without performing any allocations. User must take care of GC safety.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = "foo"
@@ -131,9 +132,9 @@ s = reader["x"][UnsafeBSONString]
 GC.@preserve buf s == "foo" # true
 ```
 
-# Binary
+### Binary
 Binary fields are represented with `BSONBinary`.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = BSONBinary([0x1, 0x2, 0x3], BSON_SUBTYPE_GENERIC_BINARY)
@@ -144,9 +145,9 @@ x.data # [0x1, 0x2, 0x3]
 x.subtype # BSON_SUBTYPE_GENERIC_BINARY
 ```
 
-## Unsafe Binary
+### Unsafe Binary
 Binary fields can be materialized as `UnsafeBSONBinary` for zero alocations, where the `data` field is an `UnsafeArray{UInt8, 1}` with pointers into the underlying buffer. User must take care of GC safety.
-```
+```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer["x"] = BSONBinary([0x1, 0x2, 0x3], BSON_SUBTYPE_GENERIC_BINARY)
@@ -157,14 +158,49 @@ GC.@preserve buf x.data == [0x1, 0x2, 0x3] # true
 x.subtype # BSON_SUBTYPE_GENERIC_BINARY
 ```
 
-## String vs Symbol
-
-## Reading
-
 ### Iteration
-### Indexing
-### Validation
-## Writing
+Fields can be iterated with `foreach()` or using the [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl) APIs. Fields are represented at `Pair{UnsafeBSONString, BSONReader}`.
+```Julia
+buf = UInt8[]
+writer = BSONWriter(buf)
+writer["x"] = Int64(1)
+writer["y"] = Int64(2)
+writer["z"] = Int64(3)
+close(writer)
+reader = BSONReader(buf)
+reader |> Map(x -> x.second[Int64]) |> sum # 6
+foreach(x -> println(x.second[Int64]), reader) # 1\n2\n3\n
+```
+
+## Indexing
+BSON field access involves a linear scan to find the matching field name. Depending on the size and structure of a document, and the fields being accessed, it might preferable to build an index over the fields first, to be re-used on every access.
+
+[BSONIndex](src/index.jl) provides a very light weight incomplete index (collisions evict previous entries) over a document. It is designed to be re-used from document to document, by means of a constant time reset. [IndexedBSONReader](src/indexed_reader.jl) wraps a reader and an index to accelerate field access in a document. Index misses fall back to wrapped reader.
+```Julia
+buf = UInt8[]
+writer = BSONWriter(buf)
+writer["x"] = Int64(1)
+writer["y"] = Int64(2)
+writer["z"] = Int64(3)
+close(writer)
+index = BSONIndex(128)
+# Index is built when IndexBSONReader is constructed
+reader = IndexedBSONReader(index, BSONReader(buf))
+reader["z"][Int64] # 3 -- accessed by index
+
+empty!(buf)
+writer = BSONWriter(buf)
+writer["a"] = Int64(1)
+writer["b"] = Int64(2)
+writer["c"] = Int64(3)
+close(writer)
+# Index can be re-used
+reader = IndexedBSONReader(index, BSONReader(buf))
+reader["b"][Int64] # 2 -- accessed by index
+reader["x"] # throws KeyError
+```
+
+## Validation
 ### Faster Buffer
 ## Structs
 ### Generic
