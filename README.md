@@ -215,8 +215,6 @@ BSONReader(buf, UncheckedBSONValidator()) # Reader with no validation
 Structs can be automatically translated to and from BSON, provided all their fields can be represented in BSON. Traits function are used to select the mode of conversion. These serve as an extension point for users over their own types.
 * `bson_simple(T)::Bool` - Set this to true if fields to be serialized are given by `fieldnames(T)` and `T` can be constructed by fields in order of declaration. Defaults to `StructTypes.StructType(T) == StructTypes.NoStructType()`.
 * `bson_supersimple(T)::Bool` - Set this to true if `T` is simple (as above) and all fields in `T` are fixed size primitive fields in BSON. This allows the writer to pre-allocate space for the entire structure before writing it. Defaults to `false`.
-* `bson_schema_version(T)` -  Set to a valid BSON value if `T` has a schema version, otherwise `nothing`. Defaults to `nothing`.
-* `bson_schema_version_field(T)` - The field name to use in the BSON document for storing the schema version. Defaults to `_v`.
 
 ### Generic
 Provided `bson_simple(T)` and `bson_super_simple(T)` are both false, serialization will use the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) API to iterate fields of `T` and to construct `T`. [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) for more details.
@@ -255,11 +253,74 @@ reader[Simple] # Simple("foo", SuperSimple(123, 1.25))
 ```
 
 ### Schema Evolution
+For long term persistence or long lived APIs, it may be advisable to encode information about schema versions in documents, and implement ways to evolve schemas through time. Specific strategies for schema evolution are beyond the scope of this package to advise or impose, rather extension points are provided for users to implement the mechanisms best fit to their use cases.
+* `bson_schema_version(T)` -  The current schema version for `T`, can be any BSON compatible type, or `nothing` if `T` is unversioned. Defaults to `nothing`.
+* `bson_schema_version_field(T)` - The field name to use in the BSON document for storing the schema version. Defaults to `_v`.
+* `bson_read_versioned(T, v, reader)` - Handle version `v` with respect to current version of `T` and read `T` from `reader`. Defaults to error if schema version is mismatched, and otherwise read as-if unversioned.
+
+```Julia
+struct Evolving1
+    x::Int64
+end
+
+LightBSON.bson_schema_version(::Type{Evolving1}) = Int32(1)
+
+struct Evolving2
+    x::Int64
+    y::Float64
+end
+
+# Construct from old version, defaulting new fields
+Evolving2(old::Evolving1) = Evolving2(old.x, NaN)
+
+LightBSON.bson_schema_version(::Type{Evolving2}) = Int32(2)
+
+function LightBSON.bson_read_versioned(::Type{Evolving2}, v::Int32, reader::AbstractBSONReader)
+    if v == 1
+        Evolving2(bson_read_unversioned(Evolving1, reader))
+    elseif v == 2
+        bson_read_unversioned(Evolving2, reader)
+    else
+        # Real world application may instead want a mechanism to allow forward compatibility, e.g., by encoding breaking vs non-breaking change info in the version
+        error("Unsupported schema version $v for Evolving")
+    end
+end
+
+const Evolving = Evolving2
+
+buf = UInt8[]
+writer = BSONWriter(buf)
+# Write old version
+writer[] = Evolving1(123)
+close(writer)
+reader = BSONReader(buf)
+# Read as new version
+reader[Evolving] # Evolving2(123, NaN)
+```
 
 ## Named Tuples
-
+Named tuples can be read and written like any struct type.
+```Julia
+buf = UInt8[]
+writer = BSONWriter(buf)
+writer[] = (; x = "foo", y = 1.25, z = (; a = Int64(123), b = Int64(456)))
+close(writer)
+reader = BSONReader(buf)
+reader[@NamedTuple{x::String, y::Float64, z::@NamedTuple{a::Int64, b::Int64}}] # (x = "foo", y = 1.25, z = (a = 123, b = 456))
+```
 
 ## Faster Buffer
+Since [BSONWriter](src/writer.jl) itself is immutable, it makes frequent calls to resize the underlying array to track the write head position. Unfortunately at present, this is not a well optimized operation Julia, resolving to C-calls for manipulating the state of the array. [BSONWriteBuffer](src/write_buffer.jl) wraps a `Vector{UInt8}` to track size purely in Julia and avoid most of these calls. It implements the minimum API necessary for use with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl), and is not for use as a general `Array` implementation.
+```Julia
+buf = BSONWriteBuffer()
+writer = BSONWriter(buf)
+writer["x"] = Int64(123)
+close(writer)
+reader = BSONReader(buf)
+reader["x"][Int64] # 123
+buf.data # Underlying array, may be longer than length(buf)
+```
+
 ## Performance
 ## Related Packages
 * [BSON.jl](https://github.com/JuliaIO/BSON.jl) - Generic serialization of all Julia types to and from BSON.
