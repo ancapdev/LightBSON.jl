@@ -16,7 +16,7 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 * Tested for conformance against the [BSON corpus](https://github.com/mongodb/specifications/blob/master/source/bson-corpus/bson-corpus.rst).
 
 ## What It Is Not
-* Generic serialization of all Julia types to BSON. See [BSON.jl](https://github.com/JuliaIO/BSON.jl). `LightBSON` aims for natural representations, suitable for interop with other languages and long term persistence.
+* Generic serialization of all Julia types to BSON. See [BSON.jl](https://github.com/JuliaIO/BSON.jl) for that functionality. [LightBSON.jl](README.md) aims for natural representations, suitable for interop with other languages and long term persistence.
 * Integrated with [FileIO.jl](https://github.com/JuliaIO/FileIO.jl). [BSON.jl](https://github.com/JuliaIO/BSON.jl) already is, and adding another with different semantics would be confusing.
 * A BSON mutation API. Reading and writing are entirely separate and only complete documents can be written.
 * Conversion to and from [Extended JSON](https://docs.mongodb.com/manual/reference/mongodb-extended-json/). This may be added later.
@@ -24,7 +24,7 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 ## Basic Usage
 * Documents are read and write to and from byte arrays with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl).
 * [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl) are immutable struct types with no state. They can be instantiated without allocation.
-* [BSONWriter](src.writer.jl) will append to the destination array. User is responsble for not writing duplicate fields.
+* [BSONWriter](src.writer.jl) will append to the destination array. User is responsible for not writing duplicate fields.
 * `reader["foo"]` or `reader[:foo]` finds `foo` and returns a new reader pointing to the field.
 * `reader[T]` materializes a field to the type `T`.
 * `writer["foo"] = x` or `writer[:foo] = x` appends a field with name `foo` and value `x`.
@@ -106,7 +106,7 @@ reader["x"][3]["b"][Int64] # 9
 ```
 
 ### Read Abstract Types
-The abstract types `Number`, `Integer`, and `AbstractFloat` can be used to materialize numeric fields to the most appropriate Julia constrained under the abstract type.
+The abstract types `Number`, `Integer`, and `AbstractFloat` can be used to materialize numeric fields to the most appropriate Julia type under the abstract type.
 ```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
@@ -175,7 +175,7 @@ foreach(x -> println(x.second[Int64]), reader) # 1\n2\n3\n
 ## Indexing
 BSON field access involves a linear scan to find the matching field name. Depending on the size and structure of a document, and the fields being accessed, it might preferable to build an index over the fields first, to be re-used on every access.
 
-[BSONIndex](src/index.jl) provides a very light weight incomplete index (collisions evict previous entries) over a document. It is designed to be re-used from document to document, by means of a constant time reset. [IndexedBSONReader](src/indexed_reader.jl) wraps a reader and an index to accelerate field access in a document. Index misses fall back to wrapped reader.
+[BSONIndex](src/index.jl) provides a very light weight incomplete index (collisions evict previous entries) over a document. It is designed to be re-used from document to document, by means of a constant time reset. [IndexedBSONReader](src/indexed_reader.jl) wraps a reader and an index to accelerate field access in a document. Index misses fall back to the wrapped reader.
 ```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
@@ -217,7 +217,7 @@ Structs can be automatically translated to and from BSON, provided all their fie
 * `bson_supersimple(T)::Bool` - Set this to true if `T` is simple (as above) and all fields in `T` are fixed size primitive fields in BSON. This allows the writer to pre-allocate space for the entire structure before writing it. Defaults to `false`.
 
 ### Generic
-Provided `bson_simple(T)` and `bson_super_simple(T)` are both false, serialization will use the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) API to iterate fields of `T` and to construct `T`. [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) for more details.
+Provided `bson_simple(T)` and `bson_super_simple(T)` are both false, serialization will use the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) API to iterate fields of `T` and to construct `T`. See [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) for more details.
 
 ### Simple
 For simple types using the `bson_simple(T)` and `bson_supersimple(T)` traits will generate faster serialization code.
@@ -281,7 +281,8 @@ function LightBSON.bson_read_versioned(::Type{Evolving2}, v::Int32, reader::Abst
     elseif v == 2
         bson_read_unversioned(Evolving2, reader)
     else
-        # Real world application may instead want a mechanism to allow forward compatibility, e.g., by encoding breaking vs non-breaking change info in the version
+        # Real world application may instead want a mechanism to allow forward compatibility,
+        # e.g., by encoding breaking vs non-breaking change info in the version
         error("Unsupported schema version $v for Evolving")
     end
 end
@@ -310,7 +311,7 @@ reader[@NamedTuple{x::String, y::Float64, z::@NamedTuple{a::Int64, b::Int64}}] #
 ```
 
 ## Faster Buffer
-Since [BSONWriter](src/writer.jl) itself is immutable, it makes frequent calls to resize the underlying array to track the write head position. Unfortunately at present, this is not a well optimized operation Julia, resolving to C-calls for manipulating the state of the array. [BSONWriteBuffer](src/write_buffer.jl) wraps a `Vector{UInt8}` to track size purely in Julia and avoid most of these calls. It implements the minimum API necessary for use with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl), and is not for use as a general `Array` implementation.
+Since [BSONWriter](src/writer.jl) itself is immutable, it makes frequent calls to resize the underlying array to track the write head position. Unfortunately at present, this is not a well optimized operation in Julia, resolving to C-calls for manipulating the state of the array. [BSONWriteBuffer](src/write_buffer.jl) wraps a `Vector{UInt8}` to track size purely in Julia and avoid most of these calls. It implements the minimum API necessary for use with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl), and is not for use as a general `Array` implementation.
 ```Julia
 buf = BSONWriteBuffer()
 writer = BSONWriter(buf)
