@@ -21,8 +21,8 @@ end
     x1 = BSONObjectId()
     x2 = BSONObjectId()
     x3 = BSONObjectId()
-    @test string(x1) < string(x2)
-    @test string(x2) < string(x3)
+    @test x1 < x2
+    @test x2 < x3
     @test now(UTC) - DateTime(x1) < Minute(5)
     @test time() - time(x1) < 5*60
 end
@@ -31,9 +31,10 @@ end
     x = collect(bson_object_id_range(3))
     @test length(x) == 3
     @test eltype(x) == BSONObjectId
-    @test x[1] != x[2]
-    @test x[1] != x[3]
-    @test x[2] != x[3]
+    @test x[1] < x[2]
+    @test x[2] < x[3]
+    @test DateTime(x[1]) == DateTime(x[2])
+    @test DateTime(x[1]) == DateTime(x[3])
 end
 
 end

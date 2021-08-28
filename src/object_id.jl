@@ -2,6 +2,8 @@ struct BSONObjectId
     data::NTuple{12, UInt8}
 end
 
+Base.isless(x::BSONObjectId, y::BSONObjectId) = x.data < y.data
+
 function BSONObjectId(x::AbstractVector{UInt8})
     length(x) == 12 || throw(ArgumentError("ObjectId bytes must be 12 long"))
     BSONObjectId(NTuple{12, UInt8}(x))
