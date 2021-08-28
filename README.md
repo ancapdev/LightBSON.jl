@@ -322,7 +322,11 @@ buf.data # Underlying array, may be longer than length(buf)
 ```
 
 ## Performance
-Performance naturally will depend very much on the nature of data being processed. The main overarching goal with this package is to enable the highest possible performance where the user requires is and is willing to sacrifice some convenience to achieve their target. General advice for high performance BSON schema, such as short field names, avoiding long arrays or documents, apply nesting to reduce search complexity, etc. Additionally for `LightBSON` specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
+Performance naturally will depend very much on the nature of data being processed. The main overarching goal with this package is to enable the highest possible performance where the user requires it and is willing to sacrifice some convenience to achieve their target.
+
+General advice for high performance BSON schema, such as short field names, avoiding long arrays or documents, apply nesting to reduce search complexity, etc. 
+
+Additionally for `LightBSON` specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
 
 Here's an example benchmark, reading and writing a named tuple with nesting. The benchmarks were run i7-10875H equipped Linux laptop.
 ```Julia
