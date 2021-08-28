@@ -325,6 +325,7 @@ buf.data # Underlying array, may be longer than length(buf)
 ## Related Packages
 * [BSON.jl](https://github.com/JuliaIO/BSON.jl) - Generic serialization of all Julia types to and from BSON.
 * [Mongoc.jl](https://github.com/felipenoris/Mongoc.jl) - Julia MongoDB client.
+* [DecFP.jl](https://github.com/JuliaMath/DecFP.jl) - Provides the `Dec128` type used for BSON `decimal128` fields.
 * [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl) - Data iteration and transformation API.
 * [WeakRefStrings.jl](https://github.com/JuliaData/WeakRefStrings.jl) - Pointer based strings.
 * [UnsafeArrays.jl](https://github.com/JuliaArrays/UnsafeArrays.jl) - Pointer based arrays.
