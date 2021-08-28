@@ -135,4 +135,14 @@ end
     @test_throws ErrorException reader[Evolved]
 end
 
+@testset "NamedTuple" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    x = (; x = 123, y = 456, z = (; a = 1.25, b = "test"))
+    writer[] = x
+    close(writer)
+    reader = BSONReader(buf)
+    reader[typeof(x)] == x
+end
+
 end
