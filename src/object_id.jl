@@ -25,12 +25,12 @@ Base.time(x::BSONObjectId) = Float64(time_part_(x))
 
 mutable struct BSONObjectIdGenerator
     cache_pad1::NTuple{4, UInt128}
-    seq::UInt32
+    seq::Threads.Atomic{UInt32}
     rnd::NTuple{5, UInt8}
     cache_pad2::NTuple{4, UInt128}
 
     function BSONObjectIdGenerator()
-        seq = rand(UInt32)
+        seq = Threads.Atomic{UInt32}(rand(UInt32))
         rnd = rand(UInt64)
         new(
             (UInt128(0), UInt128(0), UInt128(0), UInt128(0)),
@@ -69,26 +69,54 @@ else
     end
 end
 
-function Base.getindex(x::BSONObjectIdGenerator)
-    t = seconds_from_epoch_()
-    x.seq += UInt32(1)
-    s = x.seq
-    BSONObjectId((
-        (t >> 24) % UInt8,
-        (t >> 16) % UInt8,
-        (t >> 8) % UInt8,
-        t % UInt8,
-        x.rnd[1],
-        x.rnd[2],
-        x.rnd[3],
-        x.rnd[4],
-        x.rnd[5],
-        (s >> 16) % UInt8,
-        (s >> 8) % UInt8,
-        s  % UInt8,
-    ))
+@inline id_from_parts_(t, r, s) = BSONObjectId((
+    (t >> 24) % UInt8,
+    (t >> 16) % UInt8,
+    (t >> 8) % UInt8,
+    t % UInt8,
+    r[1],
+    r[2],
+    r[3],
+    r[4],
+    r[5],
+    (s >> 16) % UInt8,
+    (s >> 8) % UInt8,
+    s  % UInt8,
+))
+
+@inline Base.getindex(x::BSONObjectIdGenerator) = id_from_parts_(
+    seconds_from_epoch_(),
+    x.rnd,
+    Threads.atomic_add!(x.seq, UInt32(1))
+)
+
+struct BSONObjectIdIterator
+    t::UInt32
+    r::NTuple{5, UInt8}
+    first::UInt32
+    past_last::UInt32
 end
 
-const DEFAULT_OBJECT_ID_GENERATORS = [BSONObjectIdGenerator() for _ in 1:Threads.nthreads()]
+Base.eltype(::BSONObjectIdIterator) = BSONObjectId
 
-BSONObjectId() = @inbounds DEFAULT_OBJECT_ID_GENERATORS[Threads.threadid()][]
+@inline Base.length(x::BSONObjectIdIterator) = (x.past_last - x.first) % Int
+
+@inline function Base.iterate(x::BSONObjectIdIterator, cur::UInt32 = x.first)
+    if cur == x.past_last
+        nothing
+    else
+        id_from_parts_(x.t, x.r, cur), cur + UInt32(1)
+    end
+end
+
+@inline function Base.getindex(x::BSONObjectIdGenerator, range)
+    n = length(range) % UInt32
+    first = Threads.atomic_add!(x.seq, n)
+    BSONObjectIdIterator(seconds_from_epoch_(), x.rnd, first, first + n)
+end
+
+const default_object_id_generator = BSONObjectIdGenerator()
+
+@inline BSONObjectId() = default_object_id_generator[]
+
+@inline bson_object_id_range(n::Integer) = default_object_id_generator[1:n]

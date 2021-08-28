@@ -56,6 +56,7 @@ export bson_simple, bson_supersimple
 export bson_read, bson_read_simple, bson_read_structtype, bson_read_unversioned, bson_read_versioned
 export bson_write, bson_write_simple, bson_write_supersimple, bson_write_structtype
 export bson_schema_version, bson_schema_version_field
+export bson_object_id_range
 
 bson_schema_version(::Type{T}) where T = nothing
 

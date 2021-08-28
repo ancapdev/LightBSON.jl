@@ -27,4 +27,13 @@ end
     @test time() - time(x1) < 5*60
 end
 
+@testset "generate range" begin
+    x = collect(bson_object_id_range(3))
+    @test length(x) == 3
+    @test eltype(x) == BSONObjectId
+    @test x[1] != x[2]
+    @test x[1] != x[3]
+    @test x[2] != x[3]
+end
+
 end
