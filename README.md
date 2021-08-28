@@ -71,13 +71,12 @@ reader["x"][2][Int64] # 2
 reader["y"][2][Int64] # 4
 ```
 
-### Read as Dict or Any
-Where performance is not a concern, elements can be materialized to dictionaries (recursively) or to the most appropriate Julia type for leaf fields.
+### Dict and Any
+Where performance is not a concern, elements can be materialized to dictionaries (recursively) or to the most appropriate Julia type for leaf fields. Dictionaries can also be written directly.
 ```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
-writer["x"] = Int64(1)
-writer["y"] = "foo"
+writer[] = OrderedDict{String, Any}("x" => Int64(1), "y" => "foo")
 close(writer)
 reader = BSONReader(buf)
 reader[Dict{String, Any}] # Dict{String, Any}("x" => 1, "y" => "foo")
@@ -170,6 +169,17 @@ close(writer)
 reader = BSONReader(buf)
 reader |> Map(x -> x.second[Int64]) |> sum # 6
 foreach(x -> println(x.second[Int64]), reader) # 1\n2\n3\n
+```
+
+### High Level API
+High level functions `bson_read()` and `bson_write()` provide convenience simple or less performance sensitive use cases. Some example usage here, see method help for full descriptions.
+```Julia
+buf = bson_write(UInt8[], :x => Int64(1), :y => Int64(2))
+bson_read(buf)
+x = bson_read(@NamedTuple{x::Int64, y::Int64}, buf)
+path = joinpath(homedir(), "test.bson")
+bson_write(path, x)
+bson_read(path)
 ```
 
 ## Indexing
