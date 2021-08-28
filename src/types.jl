@@ -91,6 +91,7 @@ const ValueField = Union{
     Dec128,
     UUID,
     String,
+    UnsafeBSONString,
     Nothing,
     BSONTimestamp,
     BSONObjectId,
