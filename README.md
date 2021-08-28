@@ -72,7 +72,7 @@ reader["y"][2][Int64] # 4
 ```
 
 ### Read as Dict or Any
-Where performance is not a concern, elements can be materialized to a dictionaries (recursively) or the most appropriate Julia type for leaf fields.
+Where performance is not a concern, elements can be materialized to dictionaries (recursively) or to the most appropriate Julia type for leaf fields.
 ```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
