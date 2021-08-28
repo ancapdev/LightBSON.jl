@@ -172,6 +172,8 @@ end
     @assert len == length(buf)
     reader = BSONReader(single_field_doc_(BSON_TYPE_ARRAY, buf))
     @test reader["x"][Vector{Int64}] == Int64[1, 2, 3]
+    @test reader["x"][1][Int64] == 1
+    @test reader["x"][3][Int64] == 3
 end
 
 @testset "regex" begin
@@ -237,6 +239,19 @@ end
     close(writer)
     reader = BSONReader(buf)
     @test_throws KeyError reader["y"]
+end
+
+@testset "foreach" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer["x"] = 1
+    writer["y"] = 2
+    writer["z"] = 3
+    close(writer)
+    reader = BSONReader(buf)
+    values = Pair{String, Int}[]
+    foreach(x -> push!(values, x.first => x.second[Int]), reader)
+    @test values == ["x" => 1, "y" => 2, "z" => 3]
 end
 
 end
