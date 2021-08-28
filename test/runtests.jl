@@ -15,4 +15,5 @@ using UUIDs
     include("struct_tests.jl")
     include("corpus_tests.jl")
     include("object_id_tests.jl")
+    include("convenience_tests.jl")
 end
