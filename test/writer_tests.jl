@@ -96,4 +96,12 @@ end
     @test BSONReader(buf)[Any] == x
 end
 
+@testset "symbol name" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer[:x] = 123
+    close(writer)
+    @test BSONReader(buf)["x"][Any] == 123
+end
+
 end
