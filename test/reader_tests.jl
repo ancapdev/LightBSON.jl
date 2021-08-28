@@ -220,4 +220,23 @@ end
     @test_throws BSONConversionError(T == Int64 ? BSON_TYPE_DOUBLE : BSON_TYPE_INT64, T) reader["x"][T]
 end
 
+@testset "long field name skip" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer["some_very_long_field_name"] = 123
+    writer["x"] = 456
+    close(writer)
+    reader = BSONReader(buf)
+    @test reader["x"][Int] == 456
+end
+
+@testset "missing field" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer["x"] = 123
+    close(writer)
+    reader = BSONReader(buf)
+    @test_throws KeyError reader["y"]
+end
+
 end
