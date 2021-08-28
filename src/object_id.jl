@@ -13,7 +13,7 @@ function BSONObjectId(s::AbstractString)
 end
 
 function Base.show(io::IO, x::BSONObjectId)
-    print(io, bytes2hex(x.data))
+    print(io, bytes2hex(collect(x.data)))
     nothing
 end
 
