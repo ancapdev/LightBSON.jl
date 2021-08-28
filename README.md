@@ -16,7 +16,7 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 * Tested for conformance against the [BSON corpus](https://github.com/mongodb/specifications/blob/master/source/bson-corpus/bson-corpus.rst).
 
 ## What It Is Not
-* Generic serialization of all Julia types to BSON. See [BSON.jl](https://github.com/JuliaIO/BSON.jl) for that functionality. [LightBSON.jl](README.md) aims for natural representations, suitable for interop with other languages and long term persistence.
+* Generic serialization of all Julia types to BSON. See [BSON.jl](https://github.com/JuliaIO/BSON.jl) for that functionality. [LightBSON.jl](#LightBSON) aims for natural representations, suitable for interop with other languages and long term persistence.
 * Integrated with [FileIO.jl](https://github.com/JuliaIO/FileIO.jl). [BSON.jl](https://github.com/JuliaIO/BSON.jl) already is, and adding another with different semantics would be confusing.
 * A BSON mutation API. Reading and writing are entirely separate and only complete documents can be written.
 * Conversion to and from [Extended JSON](https://docs.mongodb.com/manual/reference/mongodb-extended-json/). This may be added later.
@@ -339,7 +339,7 @@ Performance naturally will depend very much on the nature of data being processe
 
 General advice for high performance BSON schema, such as short field names, avoiding long arrays or documents, and using nesting to reduce search complexity, all apply. 
 
-For [LightBSON](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
+For [LightBSON.jl](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
 
 Here's an example benchmark, reading and writing a named tuple with nesting. The benchmarks were run i7-10875H equipped Linux laptop.
 ```Julia
