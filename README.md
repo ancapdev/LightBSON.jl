@@ -201,13 +201,65 @@ reader["x"] # throws KeyError
 ```
 
 ## Validation
-### Faster Buffer
+[BSONReader](src/reader.jl) can be configured with a validator to use during the processing of the input document; 3 are provided:
+* [StrictBSONValidator](src/validator.jl) - Validates all error cases presented in the [BSON corpus](https://github.com/mongodb/specifications/blob/master/source/bson-corpus/bson-corpus.rst).
+* [LightBSONValidator](src/validator.jl) - Validates field lengths against parent scope (document or buffer), to guard against invalid memory access. This is the default validator.
+* [UncheckedBSONValidator](src/validator.jl) - Performs no validation.
+```Julia
+BSONReader(buf, StrictBSONValidator()) # Reader with strict validation
+BSONReader(buf, LightBSONValidator())  # Reader with memory protected validation
+BSONReader(buf, UncheckedBSONValidator()) # Reader with no validation
+```
+
 ## Structs
+Structs can be automatically translated to and from BSON, provided all their fields can be represented in BSON. Traits function are used to select the mode of conversion. These serve as an extension point for users over their own types.
+* `bson_simple(T)::Bool` - Set this to true if fields to be serialized are given by `fieldnames(T)` and `T` can be constructed by fields in order of declaration. Defaults to `StructTypes.StructType(T) == StructTypes.NoStructType()`.
+* `bson_supersimple(T)::Bool` - Set this to true if `T` is simple (as above) and all fields in `T` are fixed size primitive fields in BSON. This allows the writer to pre-allocate space for the entire structure before writing it. Defaults to `false`.
+* `bson_schema_version(T)` -  Set to a valid BSON value if `T` has a schema version, otherwise `nothing`. Defaults to `nothing`.
+* `bson_schema_version_field(T)` - The field name to use in the BSON document for storing the schema version. Defaults to `_v`.
+
 ### Generic
+Provided `bson_simple(T)` and `bson_super_simple(T)` are both false, serialization will use the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) API to iterate fields of `T` and to construct `T`. [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) for more details.
+
 ### Simple
-### Super Simple
+For simple types using the `bson_simple(T)` and `bson_supersimple(T)` traits will generate faster serialization code.
+```Julia
+struct SuperSimple
+    a::Int64
+    b::Float64
+end
+
+LightBSON.bson_supersimple(::Type{SuperSimple}) = true
+
+struct Simple
+    x::String
+    y::SuperSimple
+end
+
+LightBSON.bson_simple(::Type{Simple}) = true
+
+buf = UInt8[]
+writer = BSONWriter(buf)
+writer["simple"] = Simple("foo", SuperSimple(123, 1.25))
+close(writer)
+reader = BSONReader(buf)
+reader["simple"][Simple] # Simple("foo", SuperSimple(123, 1.25))
+
+# Structs can also be written to the root of the document
+buf = UInt8[]
+writer = BSONWriter(buf)
+writer[] = Simple("foo", SuperSimple(123, 1.25))
+close(writer)
+reader = BSONReader(buf)
+reader[Simple] # Simple("foo", SuperSimple(123, 1.25))
+```
+
 ### Schema Evolution
+
 ## Named Tuples
+
+
+## Faster Buffer
 ## Performance
 ## Related Packages
 * [BSON.jl](https://github.com/JuliaIO/BSON.jl) - Generic serialization of all Julia types to and from BSON.
@@ -215,3 +267,4 @@ reader["x"] # throws KeyError
 * [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl) - Data iteration and transformation API.
 * [WeakRefStrings.jl](https://github.com/JuliaData/WeakRefStrings.jl) - Pointer based strings.
 * [UnsafeArrays.jl](https://github.com/JuliaArrays/UnsafeArrays.jl) - Pointer based arrays.
+* [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) - Serialization traits and utilities for user defined structures.
