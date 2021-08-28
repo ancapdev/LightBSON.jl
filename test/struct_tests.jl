@@ -18,6 +18,11 @@ end
 
 LightBSON.bson_simple(::Type{Simple}) = true
 
+struct StructType
+    x::Int64
+    y::Float64
+end
+
 struct Evolved1
     x::Int64
 end
@@ -82,6 +87,16 @@ end
     close(writer)
     reader = BSONReader(buf)
     @test reader[SuperSimple] == x
+end
+
+@testset "StructType" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    x = StructType(123, 1.25)
+    writer[] = x
+    close(writer)
+    reader = BSONReader(buf)
+    @test reader[StructType] == x
 end
 
 @testset "evolved prev" begin
