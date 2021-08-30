@@ -22,7 +22,7 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 * Conversion to and from [Extended JSON](https://docs.mongodb.com/manual/reference/mongodb-extended-json/). This may be added later.
 
 ## High Level API
-Performance sensitive use cases are the focus of this package, but a high level API is available for where when performance is less of a concern. The high level API will also perform optimally when reading simple types without strings, arrays, or other types that require allocation.
+Performance sensitive use cases are the focus of this package, but a high level API is available for where performance is less of a concern. The high level API will also perform optimally when reading simple types without strings, arrays, or other fields that require allocation.
 * `bson_read([T=Any], src)` reads `T` from `src` where `src` is either a `DenseVector{UInt8}`, an `IO` 
 object, or a path to a file.
 * `bson_write(dst, x)` writes `x` to `dst` where `x` is a type that maps to fields (dictionary, struct, named tuple), and `dst` is a `DenseVector{UInt8}`, an `IO`, or a path to a file.
@@ -363,16 +363,20 @@ x = (;
 )
 
 @btime begin
-    writer = BSONWriter($(UInt8[]))
+    buf = $(UInt8[])
+    empty!(buf)
+    writer = BSONWriter(buf)
     writer[] = $x
     close(writer)
-end # 74.563 ns (0 allocations: 0 bytes)
+end # 78.730 ns (0 allocations: 0 bytes)
 
 @btime begin
-    writer = BSONWriter($(BSONWriteBuffer()))
+    buf = $(BSONWriteBuffer())
+    empty!(buf)
+    writer = BSONWriter(buf)
     writer[] = $x
     close(writer)
-end # 59.523 ns (0 allocations: 0 bytes)
+end # 58.303 ns (0 allocations: 0 bytes)
 
 buf = UInt8[]
 writer = BSONWriter(buf)
