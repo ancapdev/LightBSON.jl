@@ -21,7 +21,27 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 * A BSON mutation API. Reading and writing are entirely separate and only complete documents can be written.
 * Conversion to and from [Extended JSON](https://docs.mongodb.com/manual/reference/mongodb-extended-json/). This may be added later.
 
-## Basic Usage
+## High Level API
+Performance sensitive use cases are the focus of this package, but a high level API is available for where when performance is less of a concern. The high level API will also perform optimally when reading simple types without strings, arrays, or other types that require allocation.
+* `bson_read([T=Any], src)` reads `T` from `src` where `src` is either a `DenseVector{UInt8}`, an `IO` 
+object, or a path to a file.
+* `bson_write(dst, x)` writes `x` to `dst` where `x` is a type that maps to fields (dictionary, struct, named tuple), and `dst` is a `DenseVector{UInt8}`, an `IO`, or a path to a file.
+* `bson_write(dst, xs...)` writes `xs` to `dst` where `xs` is a list of `Pair{String, T}` mapping names to field values, and `dst` is as above. 
+```Julia
+# Write to a byte buffer and return the buffer
+buf = bson_write(UInt8[], :x => Int64(1), :y => Int64(2))
+# Read from a byte buffer as an OrderedDict{String, Any}
+bson_read(buf)
+# Read from a byte buffer as a specific type
+x = bson_read(@NamedTuple{x::Int64, y::Int64}, buf)
+path = joinpath(homedir(), "test.bson")
+# Write to a file
+bson_write(path, x)
+# Read from a file as an OrderedDict{String Any}
+bson_read(path)
+```
+
+## Low Level API
 * Documents are read and written to and from byte arrays with [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl).
 * [BSONReader](src/reader.jl) and [BSONWriter](src/writer.jl) are immutable struct types with no state. They can be instantiated without allocation.
 * [BSONWriter](src.writer.jl) will append to the destination array. User is responsible for not writing duplicate fields.
@@ -169,17 +189,6 @@ close(writer)
 reader = BSONReader(buf)
 reader |> Map(x -> x.second[Int64]) |> sum # 6
 foreach(x -> println(x.second[Int64]), reader) # 1\n2\n3\n
-```
-
-### High Level API
-High level functions `bson_read()` and `bson_write()` provide convenience for simple or less performance sensitive use cases. Some example usage here, see method help for full descriptions.
-```Julia
-buf = bson_write(UInt8[], :x => Int64(1), :y => Int64(2))
-bson_read(buf)
-x = bson_read(@NamedTuple{x::Int64, y::Int64}, buf)
-path = joinpath(homedir(), "test.bson")
-bson_write(path, x)
-bson_read(path)
 ```
 
 ## Indexing
