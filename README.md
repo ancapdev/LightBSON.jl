@@ -341,7 +341,7 @@ General advice for high performance BSON schema, such as short field names, avoi
 
 For [LightBSON.jl](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
 
-Here's an example benchmark, reading and writing a named tuple with nesting. The benchmarks were run i7-10875H equipped Linux laptop.
+Here's an example benchmark, reading and writing a named tuple with nesting (run on a Ryzen 5959X).
 ```Julia
 x = (;
     f1 = 1.25,
@@ -357,24 +357,24 @@ x = (;
     writer = BSONWriter($(UInt8[]))
     writer[] = $x
     close(writer)
-end # 92.104 ns (0 allocations: 0 bytes)
+end # 74.563 ns (0 allocations: 0 bytes)
 
 @btime begin
     writer = BSONWriter($(BSONWriteBuffer()))
     writer[] = $x
     close(writer)
-end # 72.139 ns (0 allocations: 0 bytes)
+end # 59.523 ns (0 allocations: 0 bytes)
 
 buf = UInt8[]
 writer = BSONWriter(buf)
 writer[] = x
 close(writer)
-@btime BSONReader($buf)[$(typeof(x))] # 148.258 ns (0 allocations: 0 bytes)
-@btime BSONReader($buf, UncheckedBSONValidator())[$(typeof(x))] # 144.132 ns (0 allocations: 0 bytes)
-@btime IndexedBSONReader($(BSONIndex(128)), BSONReader($buf))[$(typeof(x))] # 120.348 ns (0 allocations: 0 bytes)
-@btime IndexedBSONReader($(BSONIndex(128)), BSONReader($buf, UncheckedBSONValidator()))[$(typeof(x))] # 112.705 ns (0 allocations: 0 bytes)
-@btime IndexedBSONReader($(BSONIndex(128)), BSONReader($buf)) # 65.963 ns (0 allocations: 0 bytes)
-@btime $(IndexedBSONReader(BSONIndex(128), BSONReader(buf)))[$(typeof(x))] # 56.037 ns (0 allocations: 0 bytes)
+@btime BSONReader($buf)[$(typeof(x))] # 103.825 ns (0 allocations: 0 bytes)
+@btime BSONReader($buf, UncheckedBSONValidator())[$(typeof(x))] # 102.549 ns (0 allocations: 0 bytes)
+@btime IndexedBSONReader($(BSONIndex(128)), BSONReader($buf))[$(typeof(x))] # 86.876 ns (0 allocations: 0 bytes)
+@btime IndexedBSONReader($(BSONIndex(128)), BSONReader($buf, UncheckedBSONValidator()))[$(typeof(x))] # 84.987 ns (0 allocations: 0 bytes)
+@btime IndexedBSONReader($(BSONIndex(128)), BSONReader($buf)) # 47.896 ns (0 allocations: 0 bytes)
+@btime $(IndexedBSONReader(BSONIndex(128), BSONReader(buf)))[$(typeof(x))] # 41.434 ns (0 allocations: 0 bytes)
 ```
 We can observe [BSONWriteBuffer](src/write_buffer.jl) makes a material difference to write performance, while indexing, in this case, has a reasonable effect on read performance even for this small document. In the final two lines we can see that indexing and reading the indexed document breaks down roughly half/half. Using the unchecked validator has a smaller impact, and must be used with caution.
 
