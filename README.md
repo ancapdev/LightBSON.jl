@@ -350,7 +350,7 @@ General advice for high performance BSON schema, such as short field names, avoi
 
 For [LightBSON.jl](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
 
-Here's an example benchmark, reading and writing a named tuple with nesting (run on a Ryzen 5959X).
+Here's an example benchmark, reading and writing a named tuple with nesting (run on a Ryzen 5950X).
 ```Julia
 x = (;
     f1 = 1.25,
