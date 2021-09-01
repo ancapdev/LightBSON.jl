@@ -1,27 +1,18 @@
-struct SuperSimple
-    x::Int64
-    y::Float64
-end
-
-LightBSON.bson_supersimple(::Type{SuperSimple}) = true
-
 struct NestedSimple
     x::Int64
 end
-
-LightBSON.bson_supersimple(::Type{NestedSimple}) = true
 
 struct Simple
     x::String
     y::NestedSimple
 end
 
-LightBSON.bson_simple(::Type{Simple}) = true
-
 struct StructType
     x::Int64
     y::Float64
 end
+
+StructTypes.StructType(::Type{StructType}) = StructTypes.Struct()
 
 struct Evolved1
     x::Int64
@@ -77,16 +68,6 @@ const Evolved = Evolved3
     close(writer)
     reader = BSONReader(buf)
     @test reader[Simple] == x
-end
-
-@testset "supersimple" begin
-    buf = UInt8[]
-    writer = BSONWriter(buf)
-    x = SuperSimple(123, 1.25)
-    writer[] = x
-    close(writer)
-    reader = BSONReader(buf)
-    @test reader[SuperSimple] == x
 end
 
 @testset "StructType" begin

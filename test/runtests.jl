@@ -3,6 +3,7 @@ using Dates
 using DecFP
 using JSON3
 using LightBSON
+using StructTypes
 using Test
 using UUIDs
 

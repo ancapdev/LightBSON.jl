@@ -457,7 +457,7 @@ end
 end
 
 @inline function bson_read_unversioned(::Type{T}, reader::AbstractBSONReader) where T
-    if bson_supersimple(T) || bson_simple(T)
+    if bson_simple(T)
         bson_read_simple(T, reader)
     else
         bson_read_structtype(T, reader)

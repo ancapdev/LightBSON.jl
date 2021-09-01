@@ -233,42 +233,40 @@ BSONReader(buf, UncheckedBSONValidator()) # Reader with no validation
 ## Structs
 Structs can be automatically translated to and from BSON, provided all their fields can be represented in BSON. Traits functions are used to select the mode of conversion, and these serve as an extension point for user defined types.
 * `bson_simple(T)::Bool` - Set this to true if fields to be serialized are given by `fieldnames(T)` and `T` can be constructed by fields in order of declaration. Defaults to `StructTypes.StructType(T) == StructTypes.NoStructType()`.
-* `bson_supersimple(T)::Bool` - Set this to true if `T` is simple (as above) and all fields in `T` are fixed size primitive fields in BSON. This allows the writer to pre-allocate space for the entire structure before writing it. Defaults to `false`.
 
 ### Generic
-Provided `bson_simple(T)` and `bson_super_simple(T)` are both false, serialization will use the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) API to iterate fields of `T` and to construct `T`. See [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) for more details.
+Provided `bson_simple(T)` is false, serialization will use the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) API to iterate fields of `T` and to construct `T`. See [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) for more details.
 
 ### Simple
-For simple types using the `bson_simple(T)` and `bson_supersimple(T)` traits will generate faster serialization code.
+For simple types using the `bson_simple(T)` trait will generate faster serialization code. This needs only be explicitly set if `StructTypes.StructType(T)` is also defined.
 ```Julia
-struct SuperSimple
+struct NestedSimple
     a::Int64
     b::Float64
 end
 
-LightBSON.bson_supersimple(::Type{SuperSimple}) = true
-
 struct Simple
     x::String
-    y::SuperSimple
+    y::NestedSimple
 end
 
+StructTypes.StructType(::Type{Simple}) = StructTypes.Struct()
 LightBSON.bson_simple(::Type{Simple}) = true
 
 buf = UInt8[]
 writer = BSONWriter(buf)
-writer["simple"] = Simple("foo", SuperSimple(123, 1.25))
+writer["simple"] = Simple("foo", NestedSimple(123, 1.25))
 close(writer)
 reader = BSONReader(buf)
-reader["simple"][Simple] # Simple("foo", SuperSimple(123, 1.25))
+reader["simple"][Simple] # Simple("foo", NestedSimple(123, 1.25))
 
 # Structs can also be written to the root of the document
 buf = UInt8[]
 writer = BSONWriter(buf)
-writer[] = Simple("foo", SuperSimple(123, 1.25))
+writer[] = Simple("foo", NestedSimple(123, 1.25))
 close(writer)
 reader = BSONReader(buf)
-reader[Simple] # Simple("foo", SuperSimple(123, 1.25))
+reader[Simple] # Simple("foo", NestedSimple(123, 1.25))
 ```
 
 ### Schema Evolution
@@ -348,7 +346,7 @@ Performance naturally will depend very much on the nature of data being processe
 
 General advice for high performance BSON schema, such as short field names, avoiding long arrays or documents, and using nesting to reduce search complexity, all apply. 
 
-For [LightBSON.jl](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` or `bson_supersimple(T)` for all applicable types.
+For [LightBSON.jl](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` for all applicable types.
 
 Here's an example benchmark, reading and writing a named tuple with nesting (run on a Ryzen 5950X).
 ```Julia

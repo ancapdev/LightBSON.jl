@@ -52,9 +52,9 @@ export BSON_SUBTYPE_GENERIC_BINARY,
     BSON_SUBTYPE_MD5,
     BSON_SUBTYPE_ENCRYPTED
 
-export bson_simple, bson_supersimple
+export bson_simple
 export bson_read, bson_read_simple, bson_read_structtype, bson_read_unversioned, bson_read_versioned
-export bson_write, bson_write_simple, bson_write_supersimple, bson_write_structtype
+export bson_write, bson_write_simple, bson_write_structtype
 export bson_schema_version, bson_schema_version_field
 export bson_object_id_range
 
@@ -63,8 +63,6 @@ bson_schema_version(::Type{T}) where T = nothing
 bson_schema_version_field(::Type{T}) where T = "_v"
 
 bson_simple(::Type{T}) where T = StructTypes.StructType(T) == StructTypes.NoStructType()
-
-bson_supersimple(::Type{T}) where T = false
 
 include("object_id.jl")
 include("types.jl")

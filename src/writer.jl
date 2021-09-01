@@ -17,6 +17,14 @@ function Base.close(writer::BSONWriter)
     nothing
 end
 
+@inline wire_size_(::Type{T}) where T = missing
+@inline wire_size_(::Type{T}) where T <: Union{
+    Int32, Int64, Float64, Dec128, DateTime, BSONTimestamp, BSONObjectId
+} = sizeof(T)
+@inline wire_size_(::Type{T}) where T <: Union{Nothing, BSONMinKey, BSONMaxKey} = 0
+@inline wire_size_(::Type{Bool}) = 1
+@inline wire_size_(::Type{UUID}) = 21
+
 @inline wire_size_(x) = sizeof(x)
 @inline wire_size_(x::Nothing) = 0
 @inline wire_size_(x::String) = sizeof(x) + 5
@@ -168,37 +176,37 @@ end
 end
 
 @inline @generated function bson_write_simple(writer::BSONWriter, value::T) where T
-    e = Expr(:block)
-    for fn in fieldnames(T)
-        fns = string(fn)
-        push!(e.args, :(writer[$fns] = value.$fn))
-    end
-    e
-end
-
-@inline @generated function bson_write_supersimple(writer::BSONWriter, value::T) where T
-    e = Expr(:block)
-    totalsize = sum(sizeof, fieldtypes(T)) + sum(sizeof, fieldnames(T)) + fieldcount(T) * 2
-    curoffset = 0
-    for (ft, fn) in zip(fieldtypes(T), fieldnames(T))
-        push!(e.args, :(unsafe_store!(p + $curoffset, $(bson_type_(ft)))))
-        curoffset += 1
-        fns = string(fn)
-        fnl = sizeof(fns)
-        push!(e.args, :(ccall(:memcpy, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Csize_t), p + $curoffset, pointer($fns), $fnl)))
-        curoffset += fnl
-        push!(e.args, :(unsafe_store!(p + $curoffset, 0x0)))
-        curoffset += 1
-        push!(e.args, :(wire_store_(p + $curoffset, value.$fn)))
-        curoffset += sizeof(ft)
-    end
-    quote
-        dst = writer.dst
-        offset = length(dst)
-        resize!(dst, offset + $totalsize)
-        GC.@preserve dst begin
-            p = pointer(dst) + offset
-            $e
+    totalsize = sum(wire_size_, fieldtypes(T)) + sum(sizeof, fieldnames(T)) + fieldcount(T) * 2
+    if ismissing(totalsize)
+        e = Expr(:block)
+        for fn in fieldnames(T)
+            fns = string(fn)
+            push!(e.args, :(writer[$fns] = value.$fn))
+        end
+        e
+    else
+        e = Expr(:block)
+        curoffset = 0
+        for (ft, fn) in zip(fieldtypes(T), fieldnames(T))
+            push!(e.args, :(unsafe_store!(p + $curoffset, $(bson_type_(ft)))))
+            curoffset += 1
+            fns = string(fn)
+            fnl = sizeof(fns)
+            push!(e.args, :(ccall(:memcpy, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Csize_t), p + $curoffset, pointer($fns), $fnl)))
+            curoffset += fnl
+            push!(e.args, :(unsafe_store!(p + $curoffset, 0x0)))
+            curoffset += 1
+            push!(e.args, :(wire_store_(p + $curoffset, value.$fn)))
+            curoffset += wire_size_(ft)
+        end
+        quote
+            dst = writer.dst
+            offset = length(dst)
+            resize!(dst, offset + $totalsize)
+            GC.@preserve dst begin
+                p = pointer(dst) + offset
+                $e
+            end
         end
     end
 end
@@ -214,9 +222,7 @@ end
     if v !== nothing
         writer[bson_schema_version_field(T)] = v
     end
-    if bson_supersimple(T)
-        bson_write_supersimple(writer, value)
-    elseif bson_simple(T)
+    if bson_simple(T)
         bson_write_simple(writer, value)
     else
         bson_write_structtype(writer, value)
