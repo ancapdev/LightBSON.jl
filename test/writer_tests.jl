@@ -96,6 +96,15 @@ end
     @test BSONReader(buf, StrictBSONValidator())[Any] == x
 end
 
+@testset "typed dict" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    x = Dict{String, Int}("x" => 1, "y" => 2)
+    writer[] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())[Any] == x
+end
+
 @testset "symbol name" begin
     buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
