@@ -52,7 +52,7 @@ end
 @inline function wire_store_(p::Ptr{UInt8}, x::String)
     unsafe_store!(Ptr{Int32}(p), (sizeof(x) + 1) % Int32)
     GC.@preserve x unsafe_copyto!(p + 4, pointer(x), sizeof(x))
-    unsafe_store!(p + 5 + sizeof(x), 0x0)
+    unsafe_store!(p + 4 + sizeof(x), 0x0)
 end
 
 @inline wire_store_(p::Ptr{UInt8}, x::BSONCode) = wire_store_(p, x.code)

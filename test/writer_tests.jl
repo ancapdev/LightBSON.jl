@@ -22,49 +22,49 @@
     BSONCode("f() = 1;"),
     BSONRegex("test", "abc"),
 ]
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     writer["x"] = x
     close(writer)
-    BSONReader(buf)["x"][typeof(x)] == x
+    BSONReader(buf, StrictBSONValidator())["x"][typeof(x)] == x
 end
 
 @testset "document" begin
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     writer["x"] = w -> begin
         w["a"] = 1
         w["b"] = 2
     end
     close(writer)
-    reader = BSONReader(buf)
+    reader = BSONReader(buf, StrictBSONValidator())
     @test reader["x"].type == BSON_TYPE_DOCUMENT
     @test reader["x"]["a"][Int] == 1
     @test reader["x"]["b"][Int] == 2
 end
 
 @testset "array" begin
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     writer["x"] = [1, 2, 3]
     close(writer)
-    reader = BSONReader(buf)
+    reader = BSONReader(buf, StrictBSONValidator())
     @test reader["x"].type == BSON_TYPE_ARRAY
     @test reader["x"][Vector{Int}] == [1, 2, 3]
 end
 
 @testset "array generator" begin
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     writer["x"] = (x * x for x in 1:3)
     close(writer)
-    reader = BSONReader(buf)
+    reader = BSONReader(buf, StrictBSONValidator())
     @test reader["x"].type == BSON_TYPE_ARRAY
     @test reader["x"][Vector{Int}] == [1, 4, 9]
 end
 
 @testset "array generator documents" begin
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     writer["x"] = (
         w -> begin
@@ -74,7 +74,7 @@ end
         for x in 1:3
     )
     close(writer)
-    reader = BSONReader(buf)
+    reader = BSONReader(buf, StrictBSONValidator())
     @test reader["x"].type == BSON_TYPE_ARRAY
     @test reader["x"]["0"].type == BSON_TYPE_DOCUMENT
     @test reader["x"]["0"]["a"][Int] == 1
@@ -88,20 +88,20 @@ end
 end
 
 @testset "dict" begin
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     x = Dict{String, Any}("x" => 1, "y" => Dict{String, Any}("a" => 1, "b" => 2))
     writer[] = x
     close(writer)
-    @test BSONReader(buf)[Any] == x
+    @test BSONReader(buf, StrictBSONValidator())[Any] == x
 end
 
 @testset "symbol name" begin
-    buf = UInt8[]
+    buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     writer[:x] = 123
     close(writer)
-    @test BSONReader(buf)["x"][Any] == 123
+    @test BSONReader(buf, StrictBSONValidator())["x"][Any] == 123
 end
 
 end
