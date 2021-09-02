@@ -113,4 +113,21 @@ end
     @test BSONReader(buf, StrictBSONValidator())["x"][Any] == 123
 end
 
+@testset "pair" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    writer[] = "x" => 123
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][Any] == 123
+end
+
+@testset "tuple of pairs" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    writer[] = ("x" => 123, "y" => 1.25)
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][Any] == 123
+    @test BSONReader(buf, StrictBSONValidator())["y"][Any] == 1.25
+end
+
 end

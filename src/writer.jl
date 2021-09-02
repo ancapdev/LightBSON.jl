@@ -147,11 +147,16 @@ function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.G
     dst = writer.dst
     write_header_(dst, BSON_TYPE_ARRAY, name, 0)
     element_writer = BSONWriter(dst)
+    element_writer[] = values
+    close(element_writer)
+end
+
+function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.Generator})
     for (i, x) in enumerate(values)
         is = i <= length(SMALL_INDEX_STRINGS) ? SMALL_INDEX_STRINGS[i] : string(i - 1)
-        element_writer[is] = x
+        writer[is] = x
     end
-    close(element_writer)
+    nothing
 end
 
 @inline function Base.setindex!(writer::BSONWriter, value, name::Union{String, Symbol})
@@ -159,6 +164,18 @@ end
 end
 
 function Base.setindex!(writer::BSONWriter, fields::AbstractDict{String})
+    for (key, value) in fields
+        writer[key] = value
+    end
+    nothing
+end
+
+@inline function Base.setindex!(writer::BSONWriter, field::Pair{String})
+    writer[field.first] = field.second
+    nothing
+end
+
+function Base.setindex!(writer::BSONWriter, fields::Tuple{Vararg{Pair{String, T} where T}})
     for (key, value) in fields
         writer[key] = value
     end
