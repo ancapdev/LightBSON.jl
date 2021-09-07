@@ -163,7 +163,7 @@ end
     writer[name] = field_writer -> field_writer[] = value
 end
 
-function Base.setindex!(writer::BSONWriter, fields::AbstractDict{String})
+function Base.setindex!(writer::BSONWriter, fields::AbstractDict{<:Union{String, Symbol}})
     for (key, value) in fields
         writer[key] = value
     end
