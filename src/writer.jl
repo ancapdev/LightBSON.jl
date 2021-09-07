@@ -32,7 +32,7 @@ end
 @inline wire_size_(x::BSONSymbol) = sizeof(x.value) + 5
 @inline wire_size_(x::UUID) = 21
 @inline wire_size_(x::BSONUUIDOld) = 21
-@inline wire_size_(x::Union{BSONBinary, UnsafeBSONBinary}) = 5 + sizeof(x.data)
+@inline wire_size_(x::Union{BSONBinary, UnsafeBSONBinary}) = 5 + length(x.data)
 @inline wire_size_(x::BSONRegex) = 2 + sizeof(x.pattern) + sizeof(x.options)
 @inline wire_size_(x::BSONMinKey) = 0
 @inline wire_size_(x::BSONMaxKey) = 0
@@ -72,9 +72,9 @@ end
 end
 
 @inline function wire_store_(p::Ptr{UInt8}, x::Union{BSONBinary, UnsafeBSONBinary})
-    unsafe_store!(Ptr{Int32}(p), sizeof(x.data) % Int32)
+    unsafe_store!(Ptr{Int32}(p), length(x.data) % Int32)
     unsafe_store!(p + 4, x.subtype)
-    GC.@preserve x unsafe_copyto!(p + 5, pointer(x.data), sizeof(x.data))
+    GC.@preserve x unsafe_copyto!(p + 5, pointer(x.data), length(x.data))
 end
 
 @inline function wire_store_(p::Ptr{UInt8}, x::BSONRegex)

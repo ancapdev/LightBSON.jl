@@ -58,7 +58,7 @@ struct UnsafeBSONBinary
     subtype::UInt8
 end
 
-UnsafeBSONBinary(data::Vector{UInt8}) = UnsafeBSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
+UnsafeBSONBinary(data::UnsafeArray{UInt8, 1}) = UnsafeBSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
 
 struct BSONRegex
     pattern::String
@@ -117,8 +117,10 @@ bson_type_(::Type{BSONUUIDOld}) = BSON_TYPE_BINARY
 bson_type_(::Type{DateTime}) = BSON_TYPE_DATETIME
 bson_type_(::Type{Nothing}) = BSON_TYPE_NULL
 bson_type_(::Type{String}) = BSON_TYPE_STRING
+bson_type_(::Type{UnsafeBSONString}) = BSON_TYPE_STRING
 bson_type_(::Type{BSONTimestamp}) = BSON_TYPE_TIMESTAMP
 bson_type_(::Type{BSONBinary}) = BSON_TYPE_BINARY
+bson_type_(::Type{UnsafeBSONBinary}) = BSON_TYPE_BINARY
 bson_type_(::Type{BSONRegex}) = BSON_TYPE_REGEX
 bson_type_(::Type{BSONCode}) = BSON_TYPE_CODE
 bson_type_(::Type{BSONSymbol}) = BSON_TYPE_SYMBOL
