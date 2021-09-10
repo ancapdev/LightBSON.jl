@@ -74,5 +74,6 @@ include("indexed_reader.jl")
 include("writer.jl")
 include("write_buffer.jl")
 include("convenience.jl")
+include("fileio.jl")
 
 end
