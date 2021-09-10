@@ -379,6 +379,13 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: Abstrac
     end
 end
 
+function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{Symbol, Any}
+    foldxl(reader; init = T()) do state, x
+        state[Symbol(x.first)] = x.second[Any]
+        state
+    end
+end
+
 function Base.getindex(reader::AbstractBSONReader, ::Type{Vector{T}}) where T
     dst = T[]
     copy!(dst, reader)
