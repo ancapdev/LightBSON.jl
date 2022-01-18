@@ -9,6 +9,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DecFP = "55939f99-70c6-5e9b-8bb0-5071ed7d61fd"
 FNVHash = "5207ad80-27db-4d23-8732-fa0bd339ea89"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
@@ -16,7 +17,6 @@ UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 WeakRefStrings = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
 
 [compat]
-julia = "1.5"
 DataStructures = "0.18"
 DecFP = "1"
 FNVHash = "0.1"
@@ -25,6 +25,7 @@ StructTypes = "1"
 Transducers = "0.4"
 UnsafeArrays = "1"
 WeakRefStrings = "1"
+julia = "1.5"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

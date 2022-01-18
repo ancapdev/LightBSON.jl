@@ -4,6 +4,7 @@ using DataStructures
 using Dates
 using DecFP
 using FNVHash
+using Sockets
 using StructTypes
 using Transducers
 using UnsafeArrays

@@ -8,3 +8,23 @@
 @inline bson_representation_type(::Type{Vector{UInt8}}) = BSONBinary
 @inline bson_representation_convert(::Type{Vector{UInt8}}, x::BSONBinary) = x.data
 @inline bson_representation_convert(::Type{BSONBinary}, x::Vector{UInt8}) = BSONBinary(x)
+
+@inline bson_representation_type(::Type{<:IPAddr}) = String
+@inline bson_representation_type(::Type{<:Sockets.InetAddr}) = String
+
+bson_representation_convert(::Type{String}, x::Sockets.InetAddr{IPv4}) = "$(x.host):$(x.port)"
+
+function bson_representation_convert(::Type{Sockets.InetAddr{IPv4}}, x::String)
+    m = match(r"^(.*):(\d+)$", x)
+    m === nothing && throw(ArgumentError("Invalid IPv4 inet address: $x"))
+    Sockets.InetAddr(IPv4(m.captures[1]), parse(Int, m.captures[2]))
+end
+
+bson_representation_convert(::Type{String}, x::Sockets.InetAddr{IPv6}) = "[$(x.host)]:$(x.port)"
+
+function bson_representation_convert(::Type{Sockets.InetAddr{IPv6}}, x::String)
+    m = match(r"^\[(.*)\]:(\d+)$", x)
+    m === nothing && throw(ArgumentError("Invalid IPv6 inet address: $x"))
+    Sockets.InetAddr(IPv6(m.captures[1]), parse(Int, m.captures[2]))
+end
+
