@@ -130,4 +130,13 @@ end
     @test BSONReader(buf, StrictBSONValidator())["y"][Any] == 1.25
 end
 
+@testset "empty struct" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    writer["x"] = EmptyStruct()
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][Any] == Dict{String, Any}()
+    @test BSONReader(buf, StrictBSONValidator())["x"][EmptyStruct] == EmptyStruct()
+end
+
 end
