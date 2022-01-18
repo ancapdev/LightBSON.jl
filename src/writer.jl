@@ -200,6 +200,7 @@ end
 end
 
 @inline @generated function bson_write_simple(writer::BSONWriter, value::T) where T
+    fieldcount(T) == 0 && return nothing
     totalsize = sum(wire_size_, fieldtypes(T)) + sum(sizeof, fieldnames(T)) + fieldcount(T) * 2
     if ismissing(totalsize)
         e = Expr(:block)

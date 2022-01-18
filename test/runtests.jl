@@ -7,6 +7,8 @@ using StructTypes
 using Test
 using UUIDs
 
+struct EmptyStruct end
+
 @testset "LightBSON.jl" begin
     include("reader_tests.jl")
     include("index_tests.jl")
