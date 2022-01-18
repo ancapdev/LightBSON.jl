@@ -254,4 +254,15 @@ end
     @test values == ["x" => 1, "y" => 2, "z" => 3]
 end
 
+@testset "optional" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer["x"] = nothing
+    writer["y"] = 123
+    close(writer)
+    reader = BSONReader(buf)
+    @test reader["x"][Union{Nothing, Int}] === nothing
+    @test reader["y"][Union{Nothing, Int}] === 123
+end
+
 end

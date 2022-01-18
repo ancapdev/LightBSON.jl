@@ -7,6 +7,10 @@ struct Simple
     y::NestedSimple
 end
 
+struct WithOptional
+    x::Union{Nothing, Int64}
+end
+
 struct StructType
     x::Int64
     y::Float64
@@ -68,6 +72,26 @@ const Evolved = Evolved3
     close(writer)
     reader = BSONReader(buf)
     @test reader[Simple] == x
+end
+
+@testset "optional empty" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    x = WithOptional(nothing)
+    writer[] = x
+    close(writer)
+    reader = BSONReader(buf)
+    @test reader[WithOptional] == x
+end
+
+@testset "optional set" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    x = WithOptional(123)
+    writer[] = x
+    close(writer)
+    reader = BSONReader(buf)
+    @test reader[WithOptional] == x
 end
 
 @testset "StructType" begin

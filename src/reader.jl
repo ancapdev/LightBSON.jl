@@ -351,7 +351,7 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{AbstractFloat})
     end
 end
 
-@inline function Base.getindex(reader::AbstractBSONReader, ::Type{Tuple{Nothing, T}}) where T
+@inline function Base.getindex(reader::AbstractBSONReader, ::Type{Union{Nothing, T}}) where T
     reader.type == BSON_TYPE_NULL ? nothing : reader[T] 
 end
 
