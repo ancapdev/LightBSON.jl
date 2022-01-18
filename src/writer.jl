@@ -159,8 +159,15 @@ function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.G
     nothing
 end
 
-@inline function Base.setindex!(writer::BSONWriter, value, name::Union{String, Symbol})
-    writer[name] = field_writer -> field_writer[] = value
+@inline function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T
+    RT = bson_representation_type(T)
+    if RT != T
+        writer[name] = bson_representation_convert(RT, value)
+    elseif isstructtype(T)
+        writer[name] = field_writer -> field_writer[] = value
+    else
+        throw(ArgumentError("Unsupported type $T"))
+    end
 end
 
 function Base.setindex!(writer::BSONWriter, fields::AbstractDict{<:Union{String, Symbol}})
