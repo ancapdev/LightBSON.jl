@@ -25,4 +25,16 @@ end
     @test BSONReader(buf, StrictBSONValidator())["x"][IntEnum] == IE_BAR
 end
 
+@testset "byte vector" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    x = rand(UInt8, 10)
+    writer["x"] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][BSONBinary].data == x
+    @test BSONReader(buf, StrictBSONValidator())["x"][Vector{UInt8}] == x
+    @test IndexedBSONReader(BSONIndex(10), BSONReader(buf, StrictBSONValidator()))["x"][BSONBinary].data == x
+    @test IndexedBSONReader(BSONIndex(10), BSONReader(buf, StrictBSONValidator()))["x"][Vector{UInt8}] == x
+end
+
 end

@@ -32,3 +32,5 @@ end
 end
 
 @inline Base.getindex(reader::IndexedBSONReader, ::Type{T}) where T <: ValueField = reader.reader[T]
+
+@inline read_field_(reader::IndexedBSONReader, ::Type{T}) where T <: ValueField = read_field_(reader.reader, T)

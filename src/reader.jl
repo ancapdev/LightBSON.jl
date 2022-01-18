@@ -162,7 +162,7 @@ end
     Dates.UTM(Dates.UNIXEPOCH + load_bits_(Int64, p))
 )
 
-@inline function Base.getindex(reader::BSONReader, ::Type{T}) where T <: Union{
+@inline function read_field_(reader::BSONReader, ::Type{T}) where T <: Union{
     Int64,
     Int32,
     Float64,
@@ -175,7 +175,7 @@ end
     GC.@preserve reader load_bits_(T, pointer(reader))
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{Bool})
+@inline function read_field_(reader::BSONReader, ::Type{Bool})
     reader.type == BSON_TYPE_BOOL || throw(BSONConversionError(reader.type, Bool))
     x = GC.@preserve reader unsafe_load(pointer(reader))
     validate_bool(reader.validator, x)
@@ -195,18 +195,18 @@ end
     end
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONBinary})
+@inline function read_field_(reader::BSONReader, ::Type{UnsafeBSONBinary})
     reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, UnsafeBSONBinary))
     read_binary_(reader)
 end
 
-function Base.getindex(reader::BSONReader, ::Type{BSONBinary})
+function read_field_(reader::BSONReader, ::Type{BSONBinary})
     reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, BSONBinary))
     x = read_binary_(reader)
     GC.@preserve reader BSONBinary(copy(x.data), x.subtype)
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{UUID})
+@inline function read_field_(reader::BSONReader, ::Type{UUID})
     reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, UUID))
     GC.@preserve reader begin
         p = pointer(reader)
@@ -220,7 +220,7 @@ end
     end
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{BSONUUIDOld})
+@inline function read_field_(reader::BSONReader, ::Type{BSONUUIDOld})
     reader.type == BSON_TYPE_BINARY || throw(BSONConversionError(reader.type, BSONUUIDOld))
     GC.@preserve reader begin
         p = pointer(reader)
@@ -241,21 +241,21 @@ end
     end
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{UnsafeBSONString})
+@inline function read_field_(reader::BSONReader, ::Type{UnsafeBSONString})
     reader.type == BSON_TYPE_STRING || reader.type == BSON_TYPE_CODE || reader.type == BSON_TYPE_SYMBOL || throw(
         BSONConversionError(reader.type, UnsafeBSONString)
     )
     read_string_(reader)
 end
 
-function Base.getindex(reader::BSONReader, ::Type{String})
+function read_field_(reader::BSONReader, ::Type{String})
     reader.type == BSON_TYPE_STRING || reader.type == BSON_TYPE_CODE || reader.type == BSON_TYPE_SYMBOL || throw(
         BSONConversionError(reader.type, String)
     )
     GC.@preserve reader String(read_string_(reader))
 end
 
-function Base.getindex(reader::BSONReader, ::Type{BSONCode})
+function read_field_(reader::BSONReader, ::Type{BSONCode})
     reader.type == BSON_TYPE_CODE || throw(BSONConversionError(reader.type, BSONCode))
     GC.@preserve reader begin
         p = pointer(reader)
@@ -265,12 +265,12 @@ function Base.getindex(reader::BSONReader, ::Type{BSONCode})
     end
 end
 
-function Base.getindex(reader::BSONReader, ::Type{BSONSymbol})
+function read_field_(reader::BSONReader, ::Type{BSONSymbol})
     reader.type == BSON_TYPE_SYMBOL || throw(BSONConversionError(reader.type, BSONSymbol))
     BSONSymbol(reader[String])
 end
 
-function Base.getindex(reader::BSONReader, ::Type{BSONRegex})
+function read_field_(reader::BSONReader, ::Type{BSONRegex})
     reader.type == BSON_TYPE_REGEX || throw(BSONConversionError(reader.type, BSONRegex))
     GC.@preserve reader begin
         p = pointer(reader)
@@ -282,7 +282,7 @@ function Base.getindex(reader::BSONReader, ::Type{BSONRegex})
     end
 end
 
-function Base.getindex(reader::BSONReader, ::Type{BSONDBPointer})
+function read_field_(reader::BSONReader, ::Type{BSONDBPointer})
     reader.type == BSON_TYPE_DB_POINTER || throw(BSONConversionError(reader.type, BSONDBPointer))
     GC.@preserve reader begin
         p = pointer(reader)
@@ -294,27 +294,27 @@ function Base.getindex(reader::BSONReader, ::Type{BSONDBPointer})
     end
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{BSONMinKey})
+@inline function read_field_(reader::BSONReader, ::Type{BSONMinKey})
     reader.type == BSON_TYPE_MIN_KEY || throw(BSONConversionError(reader.type, BSONMinKey))
     BSONMinKey()
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{BSONMaxKey})
+@inline function read_field_(reader::BSONReader, ::Type{BSONMaxKey})
     reader.type == BSON_TYPE_MAX_KEY || throw(BSONConversionError(reader.type, BSONMaxKey))
     BSONMaxKey()
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{BSONUndefined})
+@inline function read_field_(reader::BSONReader, ::Type{BSONUndefined})
     reader.type == BSON_TYPE_UNDEFINED || throw(BSONConversionError(reader.type, BSONUndefined))
     BSONUndefined()
 end
 
-@inline function Base.getindex(reader::BSONReader, ::Type{Nothing})
+@inline function read_field_(reader::BSONReader, ::Type{Nothing})
     reader.type == BSON_TYPE_NULL || throw(BSONConversionError(reader.type, Nothing))
     nothing
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{Number})
+function read_field_(reader::AbstractBSONReader, ::Type{Number})
     t = reader.type
     if t == BSON_TYPE_DOUBLE
         reader[Float64]
@@ -329,7 +329,7 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{Number})
     end
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{Integer})
+function read_field_(reader::AbstractBSONReader, ::Type{Integer})
     t = reader.type
     if t == BSON_TYPE_INT64
         reader[Int64]
@@ -340,7 +340,7 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{Integer})
     end
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{AbstractFloat})
+function read_field_(reader::AbstractBSONReader, ::Type{AbstractFloat})
     t = reader.type
     if t == BSON_TYPE_DOUBLE
         reader[Float64]
@@ -351,11 +351,11 @@ function Base.getindex(reader::AbstractBSONReader, ::Type{AbstractFloat})
     end
 end
 
-@inline function Base.getindex(reader::AbstractBSONReader, ::Type{Union{Nothing, T}}) where T
+@inline function read_field_(reader::AbstractBSONReader, ::Type{Union{Nothing, T}}) where T
     reader.type == BSON_TYPE_NULL ? nothing : reader[T] 
 end
 
-function Base.getindex(reader::BSONReader, ::Type{BSONCodeWithScope})
+function read_field_(reader::BSONReader, ::Type{BSONCodeWithScope})
     reader.type == BSON_TYPE_CODE_WITH_SCOPE || throw(BSONConversionError(reader.type, BSONCodeWithScope))
     src = reader.src
     GC.@preserve src begin
@@ -372,21 +372,21 @@ function Base.getindex(reader::BSONReader, ::Type{BSONCodeWithScope})
     end
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{String, Any}
+function read_field_(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{String, Any}
     foldxl(reader; init = T()) do state, x
         state[String(x.first)] = x.second[Any]
         state
     end
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{Symbol, Any}
+function read_field_(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{Symbol, Any}
     foldxl(reader; init = T()) do state, x
         state[Symbol(x.first)] = x.second[Any]
         state
     end
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{Vector{T}}) where T
+function read_field_(reader::AbstractBSONReader, ::Type{Vector{T}}) where T
     dst = T[]
     copy!(dst, reader)
 end
@@ -395,7 +395,7 @@ function Base.copy!(dst::AbstractArray{T}, reader::AbstractBSONReader) where T
     copy!(Map(x -> x.second[T]), dst, reader)
 end
 
-function Base.getindex(reader::AbstractBSONReader, ::Type{Any})
+function read_field_(reader::AbstractBSONReader, ::Type{Any})
     if reader.type == BSON_TYPE_DOUBLE
         reader[Float64]
     elseif reader.type == BSON_TYPE_STRING
@@ -487,14 +487,20 @@ end
     end
 end
 
-@inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
-    RT = bson_representation_type(T)
-    if RT != T
-        bson_representation_convert(T, reader[RT])
-    elseif isstructtype(T)
+@inline function read_field_(reader::AbstractBSONReader, ::Type{T}) where T
+    if isstructtype(T)
         bson_read(T, reader)
     else
         throw(ArgumentError("Unsupported type $T"))
+    end
+end
+
+@inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
+    RT = bson_representation_type(T)
+    if RT != T
+        bson_representation_convert(T, read_field_(reader, RT))
+    else
+        read_field_(reader, T)
     end
 end
 

@@ -110,7 +110,7 @@ end
     offset + name_len + 2
 end
 
-function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T <: ValueField
+function write_field_(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T <: ValueField
     dst = writer.dst
     offset = write_header_(dst, bson_type_(T), name, wire_size_(value))
     p = pointer(dst) + offset
@@ -118,7 +118,7 @@ function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol
     nothing
 end
 
-function Base.setindex!(writer::BSONWriter, value::BSONCodeWithScope, name::Union{String, Symbol})
+function write_field_(writer::BSONWriter, value::BSONCodeWithScope, name::Union{String, Symbol})
     dst = writer.dst
     offset = write_header_(dst, BSON_TYPE_CODE_WITH_SCOPE, name, wire_size_(value.code) + 4)
     GC.@preserve dst begin
@@ -133,7 +133,7 @@ function Base.setindex!(writer::BSONWriter, value::BSONCodeWithScope, name::Unio
     nothing
 end
 
-function Base.setindex!(writer::BSONWriter, generator::Function, name::Union{String, Symbol})
+function write_field_(writer::BSONWriter, generator::Function, name::Union{String, Symbol})
     dst = writer.dst
     write_header_(dst, BSON_TYPE_DOCUMENT, name, 0)
     element_writer = BSONWriter(dst)
@@ -143,7 +143,7 @@ end
 
 const SMALL_INDEX_STRINGS = [string(i) for i in 0:99]
 
-function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.Generator}, name::Union{String, Symbol})
+function write_field_(writer::BSONWriter, values::Union{AbstractVector, Base.Generator}, name::Union{String, Symbol})
     dst = writer.dst
     write_header_(dst, BSON_TYPE_ARRAY, name, 0)
     element_writer = BSONWriter(dst)
@@ -159,14 +159,20 @@ function Base.setindex!(writer::BSONWriter, values::Union{AbstractVector, Base.G
     nothing
 end
 
+@inline function write_field_(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T
+    if isstructtype(T)
+        write_field_(writer, field_writer -> field_writer[] = value, name)
+    else
+        throw(ArgumentError("Unsupported type $T"))
+    end
+end
+
 @inline function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T
     RT = bson_representation_type(T)
     if RT != T
-        writer[name] = bson_representation_convert(RT, value)
-    elseif isstructtype(T)
-        writer[name] = field_writer -> field_writer[] = value
+        write_field_(writer, bson_representation_convert(RT, value), name)
     else
-        throw(ArgumentError("Unsupported type $T"))
+        write_field_(writer, value, name)
     end
 end
 
