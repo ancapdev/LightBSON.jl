@@ -66,6 +66,7 @@ bson_simple(::Type{T}) where T = StructTypes.StructType(T) == StructTypes.NoStru
 
 include("object_id.jl")
 include("types.jl")
+include("representations.jl")
 include("exceptions.jl")
 include("validator.jl")
 include("reader.jl")

@@ -488,7 +488,14 @@ end
 end
 
 @inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
-    bson_read(T, reader)
+    RT = bson_representation_type(T)
+    if RT != T
+        bson_representation_convert(T, reader[RT])
+    elseif isstructtype(T)
+        bson_read(T, reader)
+    else
+        throw(ArgumentError("Unsupported type $T"))
+    end
 end
 
 @inline @generated function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T <: NamedTuple
