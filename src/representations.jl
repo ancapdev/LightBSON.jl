@@ -2,6 +2,10 @@
 @inline bson_representation_type(::Type{Symbol}) = String
 @inline bson_representation_type(::Type{<:Enum}) = String
 
+@inline bson_representation_type(::Type{<:Tuple}) = Vector{Any}
+@inline bson_representation_convert(::Type{Vector{Any}}, x::Tuple) = collect(x)
+@inline bson_representation_convert(::Type{T}, x::Vector{Any}) where T <: Tuple = T(x)
+
 @inline bson_representation_convert(::Type{T}, x) where T = StructTypes.construct(T, x)
 @inline bson_representation_convert(::Type{String}, x) = string(x)
 

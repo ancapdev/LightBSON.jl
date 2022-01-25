@@ -37,6 +37,16 @@ end
     @test IndexedBSONReader(BSONIndex(10), BSONReader(buf, StrictBSONValidator()))["x"][Vector{UInt8}] == x
 end
 
+@testset "tuple" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    x = (1, 1.25, "test")
+    writer["x"] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][Any] == collect(x)
+    @test BSONReader(buf, StrictBSONValidator())["x"][typeof(x)] == x
+end
+
 @testset "IPv4" begin
     buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
