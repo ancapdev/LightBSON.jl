@@ -29,6 +29,24 @@
     BSONReader(buf, StrictBSONValidator())["x"][typeof(x)] == x
 end
 
+@testset "single field UnsafeBSONString" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    str = "teststr"
+    writer["x"] = UnsafeBSONString(pointer(str), length(str))
+    close(writer)
+    BSONReader(buf, StrictBSONValidator())["x"][String] == str
+end
+
+@testset "single field UnsafeBSONBinary" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    data = rand(UInt8, 10)
+    writer["x"] = UnsafeBSONBinary(data)
+    close(writer)
+    BSONReader(buf, StrictBSONValidator())["x"][UnsafeBSONBinary] == data
+end
+
 @testset "document" begin
     buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
