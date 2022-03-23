@@ -51,6 +51,8 @@ end
     s >= 0 ? s : element_size_variable_(t, p)
 end
 
+Base.sizeof(reader::BSONReader) = GC.@preserve reader element_size_(reader.type, pointer(reader))
+
 """
     name_len_and_match_(field, target)
 

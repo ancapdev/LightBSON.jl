@@ -21,6 +21,7 @@ end
     @test reader["x"][Number] == 1.25
     @test reader["x"][AbstractFloat] == 1.25
     @test reader["x"][Any] == 1.25
+    @test sizeof(reader["x"]) == 8
 end
 
 @testset "decimal" begin
@@ -29,6 +30,7 @@ end
     @test reader["x"][Number] == d128"1.25"
     @test reader["x"][AbstractFloat] == d128"1.25"
     @test reader["x"][Any] == d128"1.25"
+    @test sizeof(reader["x"]) == 16
 end
 
 @testset "int32" begin
@@ -37,6 +39,7 @@ end
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
     @test reader["x"][Any] == 123
+    @test sizeof(reader["x"]) == 4
 end
 
 @testset "int64" begin
@@ -45,12 +48,14 @@ end
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
     @test reader["x"][Any] == 123
+    @test sizeof(reader["x"]) == 8
 end
 
 @testset "bool" begin
     reader = BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x1))
     @test reader["x"][Bool] == true
     @test reader["x"][Any] == true
+    @test sizeof(reader["x"]) == 1
     reader = BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x0))
     @test reader["x"][Bool] == false
     @test reader["x"][Any] == false
@@ -62,6 +67,7 @@ end
     reader = BSONReader(single_field_doc_(BSON_TYPE_DATETIME, v))
     @test reader["x"][DateTime] == t
     @test reader["x"][Any] == t
+    @test sizeof(reader["x"]) == 8
 end
 
 @testset "timestamp" begin
@@ -69,6 +75,7 @@ end
     reader = BSONReader(single_field_doc_(BSON_TYPE_TIMESTAMP, x))
     @test reader["x"][BSONTimestamp] == x
     @test reader["x"][Any] == x
+    @test sizeof(reader["x"]) == 8
 end
 
 @testset "ObjectId" begin
@@ -80,6 +87,7 @@ end
     reader = BSONReader(single_field_doc_(BSON_TYPE_OBJECTID, x, false))
     @test reader["x"][BSONObjectId] == x
     @test reader["x"][Any] == x
+    @test sizeof(reader["x"]) == 12
 end
 
 @testset "string" begin
@@ -92,9 +100,11 @@ end
     reader = BSONReader(single_field_doc_(BSON_TYPE_STRING, buf))
     @test reader["x"][String] == x
     @test reader["x"][Any] == x
+    @test sizeof(reader["x"]) == length(x) + 5
     reader = BSONReader(single_field_doc_(BSON_TYPE_CODE, buf))
     @test reader["x"][String] == x
     @test reader["x"][Any] == BSONCode(x)
+    @test sizeof(reader["x"]) == length(x) + 5
 end
 
 @testset "binary" begin
@@ -114,6 +124,7 @@ end
     @test x2 isa BSONBinary
     @test x2.data == x
     @test x2.subtype == BSON_SUBTYPE_GENERIC_BINARY
+    @test sizeof(reader["x"]) == length(x) + 5
 end
 
 @testset "uuid" begin
@@ -125,6 +136,7 @@ end
     reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
     @test reader["x"][UUID] == x
     @test reader["x"][Any] == x
+    @test sizeof(reader["x"]) == 21
 end
 
 @testset "heterogenous array" begin
@@ -149,6 +161,7 @@ end
     reader = BSONReader(single_field_doc_(BSON_TYPE_ARRAY, buf))
     @test reader["x"][Vector{Any}] == [1.25, Int64(123), true]
     @test reader["x"][Any] == [1.25, Int64(123), true]
+    @test sizeof(reader["x"]) == len
 end
 
 @testset "homogenous array" begin
@@ -174,6 +187,7 @@ end
     @test reader["x"][Vector{Int64}] == Int64[1, 2, 3]
     @test reader["x"][1][Int64] == 1
     @test reader["x"][3][Int64] == 3
+    @test sizeof(reader["x"]) == len
 end
 
 @testset "regex" begin
@@ -189,6 +203,7 @@ end
     x = reader["x"][Any]
     @test x.pattern == "test"
     @test x.options == "abc"
+    @test sizeof(reader["x"]) == 9
 end
 
 @testset "conversion error $T" for T in [
@@ -263,6 +278,9 @@ end
     reader = BSONReader(buf)
     @test reader["x"][Union{Nothing, Int}] === nothing
     @test reader["y"][Union{Nothing, Int}] === 123
+    @test sizeof(reader["x"]) == 0
+    @test sizeof(reader["y"]) == 8
+    @test sizeof(reader) == 19
 end
 
 end
