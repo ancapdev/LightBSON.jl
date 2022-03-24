@@ -7,6 +7,7 @@ using Sockets
 using StructTypes
 using Test
 using UUIDs
+using UnsafeArrays
 
 struct EmptyStruct end
 

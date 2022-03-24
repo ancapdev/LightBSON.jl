@@ -27,7 +27,7 @@ end
 
 @inline wire_size_(x) = sizeof(x)
 @inline wire_size_(x::Nothing) = 0
-@inline wire_size_(x::String) = sizeof(x) + 5
+@inline wire_size_(x::Union{String, UnsafeBSONString}) = sizeof(x) + 5
 @inline wire_size_(x::BSONCode) = sizeof(x.code) + 5
 @inline wire_size_(x::BSONSymbol) = sizeof(x.value) + 5
 @inline wire_size_(x::UUID) = 21
@@ -49,7 +49,7 @@ end
 @inline wire_store_(::Ptr{UInt8}, ::BSONMaxKey) = nothing
 @inline wire_store_(::Ptr{UInt8}, ::BSONUndefined) = nothing
 
-@inline function wire_store_(p::Ptr{UInt8}, x::String)
+@inline function wire_store_(p::Ptr{UInt8}, x::Union{String, UnsafeBSONString})
     unsafe_store!(Ptr{Int32}(p), (sizeof(x) + 1) % Int32)
     GC.@preserve x unsafe_copyto!(p + 4, pointer(x), sizeof(x))
     unsafe_store!(p + 4 + sizeof(x), 0x0)
