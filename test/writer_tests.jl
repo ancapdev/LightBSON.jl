@@ -42,7 +42,7 @@ end
     buf = empty!(fill(0xff, 1000))
     writer = BSONWriter(buf)
     data = rand(UInt8, 10)
-    writer["x"] = UnsafeBSONBinary(data)
+    writer["x"] = UnsafeBSONBinary(UnsafeArray(pointer(data), (length(data),)))
     close(writer)
     BSONReader(buf, StrictBSONValidator())["x"][UnsafeBSONBinary] == data
 end
