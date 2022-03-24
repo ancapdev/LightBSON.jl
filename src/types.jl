@@ -59,7 +59,6 @@ struct UnsafeBSONBinary
 end
 
 UnsafeBSONBinary(data::UnsafeArray{UInt8, 1}) = UnsafeBSONBinary(data, BSON_SUBTYPE_GENERIC_BINARY)
-UnsafeBSONBinary(data::DenseVector{UInt8}) = UnsafeBSONBinary(UnsafeArray(pointer(data), (length(data),)))
 
 struct BSONRegex
     pattern::String
