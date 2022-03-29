@@ -12,6 +12,7 @@ struct IndexedBSONReader{R <: BSONReader} <: AbstractBSONReader
     end    
 end
 
+@inline Base.sizeof(reader::IndexedBSONReader) = sizeof(reader.reader)
 @inline function Base.getproperty(reader::IndexedBSONReader, f::Symbol)
     f == :type && return reader.reader.type
     getfield(reader, f)
