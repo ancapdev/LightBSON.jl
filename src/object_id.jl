@@ -53,23 +53,7 @@ function Base.show(io::IO, x::BSONObjectIdGenerator)
     print(io, "BSONObjectIdGenerator($(x.seq), $(x.rnd))")
 end
 
-if Sys.islinux()
-    struct LinuxTimespec
-        seconds::Clong
-        nanoseconds::Cuint
-    end
-    @inline function seconds_from_epoch_()
-        ts = Ref{LinuxTimespec}()
-        ccall(:clock_gettime, Cint, (Cint, Ref{LinuxTimespec}), 0, ts)
-        x = ts[]
-        x.seconds % UInt32
-    end
-else
-    @inline function seconds_from_epoch_()
-        tv = Libc.TimeVal()
-        tv.sec % UInt32
-    end
-end
+@inline seconds_from_epoch_() = trunc(UInt32, time())
 
 @inline id_from_parts_(t, r, s) = BSONObjectId((
     (t >> 24) % UInt8,
