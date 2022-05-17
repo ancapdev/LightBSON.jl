@@ -1,5 +1,7 @@
 @testset "Reader" begin
 
+index = BSONIndex(128)
+
 function single_field_doc_(type::UInt8, value, endian_convert = true)
     io = IOBuffer()
     write(io, htol(Int32(4 + 1 + 2 + sizeof(value) + 1)))
@@ -15,8 +17,10 @@ function single_field_doc_(type::UInt8, value, endian_convert = true)
     take!(io)
 end
 
-@testset "double" begin
-    reader = BSONReader(single_field_doc_(BSON_TYPE_DOUBLE, 1.25))
+@testset "double" for reader in [
+    BSONReader(single_field_doc_(BSON_TYPE_DOUBLE, 1.25)),
+    IndexedBSONReader(index, BSONReader(single_field_doc_(BSON_TYPE_DOUBLE, 1.25)))
+]
     @test reader["x"][Float64] == 1.25
     @test reader["x"][Number] == 1.25
     @test reader["x"][AbstractFloat] == 1.25
@@ -24,8 +28,10 @@ end
     @test sizeof(reader["x"]) == 8
 end
 
-@testset "decimal" begin
-    reader = BSONReader(single_field_doc_(BSON_TYPE_DECIMAL128, d128"1.25"))
+@testset "decimal" for reader in [
+    BSONReader(single_field_doc_(BSON_TYPE_DECIMAL128, d128"1.25")),
+    IndexedBSONReader(index, BSONReader(single_field_doc_(BSON_TYPE_DECIMAL128, d128"1.25"))),
+]
     @test reader["x"][Dec128] == d128"1.25"
     @test reader["x"][Number] == d128"1.25"
     @test reader["x"][AbstractFloat] == d128"1.25"
@@ -33,8 +39,10 @@ end
     @test sizeof(reader["x"]) == 16
 end
 
-@testset "int32" begin
-    reader = BSONReader(single_field_doc_(BSON_TYPE_INT32, Int32(123)))
+@testset "int32" for reader in [
+    BSONReader(single_field_doc_(BSON_TYPE_INT32, Int32(123))),
+    IndexedBSONReader(index, BSONReader(single_field_doc_(BSON_TYPE_INT32, Int32(123)))),
+]
     @test reader["x"][Int32] == 123
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
@@ -42,8 +50,10 @@ end
     @test sizeof(reader["x"]) == 4
 end
 
-@testset "int64" begin
-    reader = BSONReader(single_field_doc_(BSON_TYPE_INT64, Int64(123)))
+@testset "int64" for reader in [
+    BSONReader(single_field_doc_(BSON_TYPE_INT64, Int64(123))),
+    IndexedBSONReader(index, BSONReader(single_field_doc_(BSON_TYPE_INT64, Int64(123)))),
+]
     @test reader["x"][Int64] == 123
     @test reader["x"][Number] == 123
     @test reader["x"][Integer] == 123
@@ -51,8 +61,10 @@ end
     @test sizeof(reader["x"]) == 8
 end
 
-@testset "bool" begin
-    reader = BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x1))
+@testset "bool" for reader in [
+    BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x1)),
+    IndexedBSONReader(index, BSONReader(single_field_doc_(BSON_TYPE_BOOL, 0x1))),
+]
     @test reader["x"][Bool] == true
     @test reader["x"][Any] == true
     @test sizeof(reader["x"]) == 1
