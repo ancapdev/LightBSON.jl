@@ -177,6 +177,8 @@ end
     GC.@preserve reader load_bits_(T, pointer(reader))
 end
 
+@inline read_field_(reader::BSONReader, ::Type{Date}) = Date(read_field_(reader, DateTime))
+
 @inline function read_field_(reader::BSONReader, ::Type{Bool})
     reader.type == BSON_TYPE_BOOL || throw(BSONConversionError(reader.type, Bool))
     x = GC.@preserve reader unsafe_load(pointer(reader))
@@ -354,7 +356,7 @@ function read_field_(reader::AbstractBSONReader, ::Type{AbstractFloat})
 end
 
 @inline function read_field_(reader::AbstractBSONReader, ::Type{Union{Nothing, T}}) where T
-    reader.type == BSON_TYPE_NULL ? nothing : reader[T] 
+    reader.type == BSON_TYPE_NULL ? nothing : reader[T]
 end
 
 function read_field_(reader::BSONReader, ::Type{BSONCodeWithScope})

@@ -42,6 +42,7 @@ end
 @inline wire_store_(p::Ptr{UInt8}, x::T) where T = unsafe_store!(Ptr{T}(p), htol(x))
 @inline wire_store_(::Ptr{UInt8}, ::Nothing) = nothing
 @inline wire_store_(p::Ptr{UInt8}, x::Bool) = unsafe_store!(p, UInt8(x))
+@inline wire_store_(p::Ptr{UInt8}, x::Date) = wire_store_(p, DateTime(x))
 @inline wire_store_(p::Ptr{UInt8}, x::DateTime) = wire_store_(p, Dates.value(x) - Dates.UNIXEPOCH)
 @inline wire_store_(p::Ptr{UInt8}, x::BSONTimestamp) = wire_store_(p, (x.counter % Int64) | ((x.time % Int64) << 32))
 @inline wire_store_(p::Ptr{UInt8}, x::BSONObjectId) = unsafe_store!(Ptr{BSONObjectId}(p), x)

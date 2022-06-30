@@ -9,6 +9,7 @@
     d128"1.25",
     true,
     nothing,
+    Date(2021, 1, 2),
     DateTime(2021, 1, 2, 9, 30),
     BSONTimestamp(1, 2),
     BSONObjectId((
