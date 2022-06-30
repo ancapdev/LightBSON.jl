@@ -32,3 +32,6 @@ function bson_representation_convert(::Type{Sockets.InetAddr{IPv6}}, x::String)
     Sockets.InetAddr(IPv6(m.captures[1]), parse(Int, m.captures[2]))
 end
 
+@inline bson_representation_type(::Type{Date}) = DateTime
+bson_representation_convert(::Type{Date}, x::DateTime) = Date(x)
+bson_representation_convert(::Type{DateTime}, x::Date) = DateTime(x)

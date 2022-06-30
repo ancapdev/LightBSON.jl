@@ -73,6 +73,15 @@ end
     @test reader["x"][Any] == false
 end
 
+@testset "date" begin
+    d = Date(2021, 1, 2)
+    v = trunc(Int64, datetime2unix(DateTime(d)) * 1000)
+    reader = BSONReader(single_field_doc_(BSON_TYPE_DATETIME, v))
+    @test reader["x"][Date] == d
+    @test reader["x"][Any] == DateTime(d)
+    @test sizeof(reader["x"]) == 8
+end
+
 @testset "datetime" begin
     t = DateTime(2021, 1, 2, 9, 30)
     v = trunc(Int64, datetime2unix(t) * 1000)
