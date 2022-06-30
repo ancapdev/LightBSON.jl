@@ -87,7 +87,6 @@ const ValueField = Union{
     Int64,
     Int32,
     Bool,
-    Date,
     DateTime,
     Dec128,
     UUID,
@@ -115,7 +114,6 @@ bson_type_(::Type{Bool}) = BSON_TYPE_BOOL
 bson_type_(::Type{Dec128}) = BSON_TYPE_DECIMAL128
 bson_type_(::Type{UUID}) = BSON_TYPE_BINARY
 bson_type_(::Type{BSONUUIDOld}) = BSON_TYPE_BINARY
-bson_type_(::Type{Date}) = BSON_TYPE_DATETIME
 bson_type_(::Type{DateTime}) = BSON_TYPE_DATETIME
 bson_type_(::Type{Nothing}) = BSON_TYPE_NULL
 bson_type_(::Type{String}) = BSON_TYPE_STRING
