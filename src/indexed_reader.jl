@@ -33,4 +33,10 @@ end
     end
 end
 
+function Base.getindex(reader::IndexedBSONReader, i::Integer)
+    el = getindex(reader.reader, i)
+    IndexedBSONReader(reader.index, el, Val{:internal}())
+end
+
+@inline Transducers.__foldl__(rf, val, reader::IndexedBSONReader) = Transducers.__foldl__(rf, val, reader.reader)
 @inline read_field_(reader::IndexedBSONReader, ::Type{T}) where T <: ValueField = read_field_(reader.reader, T)
