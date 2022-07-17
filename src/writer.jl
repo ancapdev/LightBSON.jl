@@ -1,11 +1,15 @@
-struct BSONWriter{D <: DenseVector{UInt8}}
+struct BSONWriter{D <: DenseVector{UInt8}, C <: BSONConversionRules}
     dst::D
     offset::Int
+    conversions::C
 
-    function BSONWriter(dst::D) where D <: DenseVector{UInt8}
+    function BSONWriter(
+        dst::D,
+        conversions::C = DefaultBSONConversions()
+    ) where {D <: DenseVector{UInt8}, C <: BSONConversionRules}
         offset = length(dst)
         resize!(dst, offset + 4)
-        new{D}(dst, offset)
+        new{D, C}(dst, offset, conversions)
     end
 end
 
@@ -124,7 +128,7 @@ function write_field_(writer::BSONWriter, value::BSONCodeWithScope, name::Union{
     GC.@preserve dst begin
         p = pointer(dst) + offset
         wire_store_(p + 4, value.code)
-        mappings_writer = BSONWriter(dst)
+        mappings_writer = BSONWriter(dst, writer.conversions)
         mappings_writer[] = value.mappings
         close(mappings_writer)
         p = pointer(dst) + offset
@@ -136,7 +140,7 @@ end
 function write_field_(writer::BSONWriter, generator::Function, name::Union{String, Symbol})
     dst = writer.dst
     write_header_(dst, BSON_TYPE_DOCUMENT, name, 0)
-    element_writer = BSONWriter(dst)
+    element_writer = BSONWriter(dst, writer.conversions)
     generator(element_writer)
     close(element_writer)
 end
@@ -146,7 +150,7 @@ const SMALL_INDEX_STRINGS = [string(i) for i in 0:99]
 function write_field_(writer::BSONWriter, values::Union{AbstractVector, Base.Generator}, name::Union{String, Symbol})
     dst = writer.dst
     write_header_(dst, BSON_TYPE_ARRAY, name, 0)
-    element_writer = BSONWriter(dst)
+    element_writer = BSONWriter(dst, writer.conversions)
     element_writer[] = values
     close(element_writer)
 end
@@ -168,9 +172,9 @@ end
 end
 
 @inline function Base.setindex!(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T
-    RT = bson_representation_type(T)
+    RT = bson_representation_type(writer.conversions, T)
     if RT != T
-        write_field_(writer, bson_representation_convert(RT, value), name)
+        write_field_(writer, bson_representation_convert(writer.conversions, RT, value), name)
     else
         write_field_(writer, value, name)
     end

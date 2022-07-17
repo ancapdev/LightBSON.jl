@@ -14,6 +14,7 @@ using WeakRefStrings
 export BSONConversionError
 export AbstractBSONReader, BSONReader, BSONWriter, BSONWriteBuffer
 export BSONValidator, StrictBSONValidator, LightBSONValidator, UncheckedBSONValidator
+export BSONConverionRules, DefaultBSONConversions, NumericBSONConversions
 export BSONIndex, IndexedBSONReader
 export BSONObjectId, BSONObjectIdGenerator
 export BSONTimestamp

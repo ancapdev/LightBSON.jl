@@ -16,6 +16,7 @@ end
 @inline Base.foreach(f, reader::IndexedBSONReader) = foreach(f, reader.reader)
 @inline function Base.getproperty(reader::IndexedBSONReader, f::Symbol)
     f == :type && return reader.reader.type
+    f == :conversions && return reader.reader.conversions
     getfield(reader, f)
 end
 
@@ -25,7 +26,7 @@ end
         key = BSONIndexKey(name, reader.reader.offset)
         value = reader.index[key]
         field_reader = if value !== nothing
-            BSONReader(src, Int(value.offset), value.type, reader.reader.validator)
+            BSONReader(src, Int(value.offset), value.type, reader.reader.validator, reader.reader.conversions)
         else
             reader.reader[name]
         end

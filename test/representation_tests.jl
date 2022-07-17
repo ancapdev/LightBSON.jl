@@ -75,4 +75,31 @@ end
     @test BSONReader(buf, StrictBSONValidator())["y"][Sockets.InetAddr{IPv6}] == y
 end
 
+@testset "Unsigned integers" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf, NumericBSONConversions())
+    x1 = UInt64(0xffff_ffff_ffff_ffff)
+    x2 = UInt64(123)
+    y1 = UInt32(0xffff_ffff)
+    y2 = UInt32(123)
+    writer["x1"] = x1
+    writer["x2"] = x2
+    writer["y1"] = y1
+    writer["y2"] = y2
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator(), NumericBSONConversions())["x1"][UInt64] == x1
+    @test BSONReader(buf, StrictBSONValidator(), NumericBSONConversions())["x2"][UInt64] == x2
+    @test BSONReader(buf, StrictBSONValidator(), NumericBSONConversions())["y1"][UInt32] == y1
+    @test BSONReader(buf, StrictBSONValidator(), NumericBSONConversions())["y2"][UInt32] == y2
+end
+
+@testset "Float32" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf, NumericBSONConversions())
+    x = 1.25f0
+    writer["x"] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator(), NumericBSONConversions())["x"][Float32] == x
+end
+
 end

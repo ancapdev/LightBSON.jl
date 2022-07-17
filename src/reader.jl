@@ -1,16 +1,25 @@
 abstract type AbstractBSONReader end
 
-struct BSONReader{S <: DenseVector{UInt8}, V <: BSONValidator} <: AbstractBSONReader
+struct BSONReader{S <: DenseVector{UInt8}, V <: BSONValidator, C <: BSONConversionRules} <: AbstractBSONReader
     src::S
     offset::Int
     type::UInt8
     validator::V
+    conversions::C
 end
 
-@inline function BSONReader(src::DenseVector{UInt8}, validator = LightBSONValidator())
+@inline function BSONReader(
+    src::DenseVector{UInt8},
+    validator::BSONValidator = LightBSONValidator(),
+    conversions::BSONConversionRules = DefaultBSONConversions()
+)
     validate_root(validator, src)
-    BSONReader(src, 0, BSON_TYPE_DOCUMENT, validator)
+    BSONReader(src, 0, BSON_TYPE_DOCUMENT, validator, conversions)
 end
+
+@inline BSONReader(src::DenseVector{UInt8}, conversions::BSONConversionRules) = BSONReader(
+    src, LightBSONValidator(), conversions
+)
 
 @inline Base.pointer(reader::BSONReader) = pointer(reader.src) + reader.offset
 
@@ -110,7 +119,7 @@ end
             field_start = offset + 1 + name_len
             field_end = field_start + value_len
             validate_field(reader.validator, el_type, field_p, value_len, doc_end - field_start)
-            field_reader = BSONReader(src, field_start, el_type, reader.validator)
+            field_reader = BSONReader(src, field_start, el_type, reader.validator, reader.conversions)
             val = Transducers.@next(rf, val, UnsafeBSONString(name_p, name_len - 1) => field_reader)
             offset = field_end
         end
@@ -143,7 +152,7 @@ function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol}
             field_start = offset + 1 + name_len
             field_end = field_start + value_len
             validate_field(reader.validator, el_type, field_p, value_len, doc_end - field_start)
-            name_match && return BSONReader(reader.src, field_start, el_type, reader.validator)
+            name_match && return BSONReader(reader.src, field_start, el_type, reader.validator, reader.conversions)
             offset = field_end
         end
     end
@@ -369,7 +378,7 @@ function read_field_(reader::BSONReader, ::Type{BSONCodeWithScope})
         validate_string(reader.validator, p + 8, code_len - 1)
         BSONCodeWithScope(
             unsafe_string(p + 8, code_len - 1),
-            BSONReader(src, doc_offset, BSON_TYPE_DOCUMENT, reader.validator)[Dict{String, Any}]
+            BSONReader(src, doc_offset, BSON_TYPE_DOCUMENT, reader.validator, reader.conversions)[Dict{String, Any}]
         )
     end
 end
@@ -498,9 +507,9 @@ end
 end
 
 @inline function Base.getindex(reader::AbstractBSONReader, ::Type{T}) where T
-    RT = bson_representation_type(T)
+    RT = bson_representation_type(reader.conversions, T)
     if RT != T
-        bson_representation_convert(T, read_field_(reader, RT))
+        bson_representation_convert(reader.conversions, T, read_field_(reader, RT))
     else
         read_field_(reader, T)
     end
