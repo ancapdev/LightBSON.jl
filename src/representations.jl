@@ -53,12 +53,17 @@ end
     bson_representation_convert(DefaultBSONConversions(), T, x)
 end
 
+const SmallInt = Union{Int8, UInt8, Int16, UInt16}
+
+@inline bson_representation_type(::NumericBSONConversions, ::Type{<:SmallInt}) = Int32
 @inline bson_representation_type(::NumericBSONConversions, ::Type{UInt32}) = Int32
 @inline bson_representation_type(::NumericBSONConversions, ::Type{UInt64}) = Int64
 @inline bson_representation_type(::NumericBSONConversions, ::Type{Float32}) = Float64
 
 @inline bson_representation_convert(::NumericBSONConversions, ::Type{Float64}, x::Float32) = Float64(x)
 @inline bson_representation_convert(::NumericBSONConversions, ::Type{Float32}, x::Float64) = Float32(x)
+@inline bson_representation_convert(::NumericBSONConversions, ::Type{Int32}, x::SmallInt) = Int32(x)
+@inline bson_representation_convert(::NumericBSONConversions, ::Type{T}, x::Int32) where T <: SmallInt = T(x)
 @inline bson_representation_convert(::NumericBSONConversions, ::Type{Int32}, x::UInt32) = reinterpret(Int32, x)
 @inline bson_representation_convert(::NumericBSONConversions, ::Type{UInt32}, x::Int32) = reinterpret(UInt32, x)
 @inline bson_representation_convert(::NumericBSONConversions, ::Type{Int64}, x::UInt64) = reinterpret(Int64, x)
