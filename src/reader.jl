@@ -383,16 +383,16 @@ function read_field_(reader::BSONReader, ::Type{BSONCodeWithScope})
     end
 end
 
-function read_field_(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{String, Any}
+function read_field_(reader::AbstractBSONReader, ::Type{T}) where {X, T <: AbstractDict{String, X}}
     foldxl(reader; init = T()) do state, x
-        state[String(x.first)] = x.second[Any]
+        state[String(x.first)] = x.second[X]
         state
     end
 end
 
-function read_field_(reader::AbstractBSONReader, ::Type{T}) where T <: AbstractDict{Symbol, Any}
+function read_field_(reader::AbstractBSONReader, ::Type{T}) where {X, T <: AbstractDict{Symbol, X}}
     foldxl(reader; init = T()) do state, x
-        state[Symbol(x.first)] = x.second[Any]
+        state[Symbol(x.first)] = x.second[X]
         state
     end
 end
