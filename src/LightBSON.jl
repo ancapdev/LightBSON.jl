@@ -65,6 +65,7 @@ bson_schema_version(::Type{T}) where T = nothing
 bson_schema_version_field(::Type{T}) where T = "_v"
 
 bson_simple(::Type{T}) where T = StructTypes.StructType(T) == StructTypes.NoStructType()
+bson_simple(::Type{<:NamedTuple}) = true
 
 include("object_id.jl")
 include("types.jl")
