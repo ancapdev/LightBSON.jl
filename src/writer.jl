@@ -199,16 +199,6 @@ function Base.setindex!(writer::BSONWriter, fields::Tuple{Vararg{Pair{String, T}
     nothing
 end
 
-@generated function Base.setindex!(writer::BSONWriter, fields::T) where T <: NamedTuple
-    e = Expr(:block)
-    for fn in fieldnames(T)
-        fns = "$fn"
-        push!(e.args, :(writer[$fns] = fields.$fn))
-    end
-    push!(e.args, nothing)
-    e
-end
-
 @inline @generated function bson_write_simple(writer::BSONWriter, value::T) where T
     fieldcount(T) == 0 && return nothing
     totalsize = sum(wire_size_, fieldtypes(T)) + sum(sizeof, fieldnames(T)) + fieldcount(T) * 2
