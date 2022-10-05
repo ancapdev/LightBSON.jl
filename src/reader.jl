@@ -99,6 +99,57 @@ end
     len
 end
 
+
+struct BSONIndices{T<:BSONReader}
+    reader::T
+end
+Base.eachindex(x::BSONReader) = BSONIndices(x)
+Base.eltype(::BSONIndices) = BSONIndexUnsafe
+Base.eltype(::Type{<:BSONIndices}) = BSONIndexUnsafe
+
+struct BSONIndexUnsafe
+    name_p::Ptr{UInt8}
+    name_len::Int
+    field_start::Int
+    el_type::Int # should be UInt8, but it degrades performance a lot. I don't know why.
+end
+BSONIndexUnsafe() = BSONIndexUnsafe(Ptr{UInt8}(0), 0,0,zero(UInt8))
+isuninitialized_fast_(x::BSONIndexUnsafe) = x.name_p == Ptr{UInt8}(0)
+
+@inline function Base.getindex(x::BSONReader, i::BSONIndexUnsafe)
+    reader = BSONReader(x.src, i.field_start, unsafe_trunc(UInt8, i.el_type), x.validator, x.conversions)
+    str = UnsafeBSONString(i.name_p, i.name_len - 1)
+    str => reader
+end
+
+@inline function Transducers.__foldl__(rf, val, indices::BSONIndices)
+    reader = indices.reader
+    reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
+        ArgumentError("Field access only available on documents and arrays")
+    )
+    src = reader.src
+    GC.@preserve src begin
+        p = pointer(reader.src)
+        offset = reader.offset
+        doc_len = Int(ltoh(unsafe_load(Ptr{Int32}(p + offset))))
+        doc_end = offset + doc_len - 1
+        offset += 4
+        while offset < doc_end
+            el_type = unsafe_load(p, offset + 1)
+            name_p = p + offset + 1
+            name_len = name_len_(name_p)
+            field_p = name_p + name_len
+            value_len = element_size_(el_type, field_p)
+            field_start = offset + 1 + name_len
+            field_end = field_start + value_len
+            validate_field(reader.validator, el_type, field_p, value_len, doc_end - field_start)
+            val = Transducers.@next(rf, val, BSONIndexUnsafe(name_p, name_len, field_start, Int64(el_type)))
+            offset = field_end
+        end
+        Transducers.complete(rf, val)
+    end
+end
+
 @inline function Transducers.__foldl__(rf, val, reader::BSONReader)
     reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
         ArgumentError("Field access only available on documents and arrays")
@@ -128,7 +179,7 @@ end
 end
 
 @inline function Base.foreach(f, reader::BSONReader)
-    foreach(f, Map(identity), reader)
+    foreach(f, Map(x->reader[x]), eachindex(reader))
 end
 
 function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol})
@@ -161,9 +212,9 @@ end
 
 function Base.getindex(reader::BSONReader, i::Integer)
     i < 1 && throw(BoundsError(reader, i))
-    el = foldl((_, x) -> reduced(x.second), Drop(i - 1), reader; init = nothing)
-    el === nothing && throw(BoundsError(reader, i))
-    el
+    el = foldl((_, x) -> reduced(x), Drop(i - 1), eachindex(reader); init = LightBSON.BSONIndexUnsafe())
+    isuninitialized_fast_(el) && throw(BoundsError(reader, i))
+    reader[el].second
 end
 
 @inline load_bits_(::Type{T}, p::Ptr{UInt8}) where T = ltoh(unsafe_load(Ptr{T}(p)))
