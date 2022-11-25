@@ -304,4 +304,13 @@ end
     @test sizeof(reader) == 19
 end
 
+@testset "getindex AbstractBSONReader" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    writer["x"] = 123
+    close(writer)
+    reader = BSONReader(buf)
+    @test reader["x"][AbstractBSONReader] == reader["x"]
+end
+
 end

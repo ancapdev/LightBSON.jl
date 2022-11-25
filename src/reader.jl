@@ -402,6 +402,10 @@ function read_field_(reader::AbstractBSONReader, ::Type{Vector{T}}) where T
     copy!(dst, reader)
 end
 
+function read_field_(reader::T, ::Type{Union{AbstractBSONReader,AbstractBSONReader}}) where {T<:AbstractBSONReader}
+    reader
+end
+
 function Base.copy!(dst::AbstractArray{T}, reader::AbstractBSONReader) where T
     copy!(Map(x -> x.second[T]), dst, reader)
 end

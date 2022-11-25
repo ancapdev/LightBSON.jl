@@ -147,7 +147,25 @@ end
     writer[] = x
     close(writer)
     reader = BSONReader(buf)
-    reader[typeof(x)] == x
+    @test reader[typeof(x)] == x
+end
+
+struct Parametric{T}
+    type_encoding::Int
+    payload::T
+end
+
+@testset "AbstractBSONReader" begin
+    buf = UInt8[]
+    writer = BSONWriter(buf)
+    x = (; type_encoding = 1, payload = "test")
+    writer[] = x
+    close(writer)
+    reader = BSONReader(buf)
+    p = reader[Parametric{AbstractBSONReader}]
+    @test p.type_encoding == 1 
+    @test p.payload isa AbstractBSONReader
+    p.payload[String] == "test"
 end
 
 end
