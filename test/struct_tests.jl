@@ -166,6 +166,11 @@ end
     @test p.type_encoding == 1 
     @test p.payload isa AbstractBSONReader
     p.payload[String] == "test"
+
+    p = reader[Parametric{typeof(reader)}]
+    @test p.type_encoding == 1 
+    @test p.payload isa AbstractBSONReader
+    p.payload[String] == "test"
 end
 
 end

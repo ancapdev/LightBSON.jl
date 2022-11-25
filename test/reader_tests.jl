@@ -311,6 +311,7 @@ end
     close(writer)
     reader = BSONReader(buf)
     @test reader["x"][AbstractBSONReader] == reader["x"]
+    @test reader["x"][typeof(reader)] == reader["x"]
 end
 
 end
