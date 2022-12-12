@@ -402,7 +402,7 @@ function read_field_(reader::AbstractBSONReader, ::Type{Vector{T}}) where T
     copy!(dst, reader)
 end
 
-function read_field_(reader::T, ::Type{<:Union{T,AbstractBSONReader}}) where {T<:AbstractBSONReader}
+function read_field_(reader::T, ::Type{<:Union{T, AbstractBSONReader}}) where {T <: AbstractBSONReader}
     reader
 end
 
