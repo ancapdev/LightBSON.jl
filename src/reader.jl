@@ -156,7 +156,7 @@ end
             offset = field_end
         end
     end
-    throw(KeyError(target))
+    BSONReader(reader.src, 0, BSON_TYPE_NULL, reader.validator, reader.conversions)
 end
 
 # @noinline Base.@constprop :none function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol})

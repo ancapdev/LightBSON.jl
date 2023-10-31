@@ -274,7 +274,7 @@ end
     writer["x"] = 123
     close(writer)
     reader = BSONReader(buf)
-    @test_throws KeyError reader["y"]
+    reader["y"][Any] === nothing
 end
 
 @testset "foreach" begin
