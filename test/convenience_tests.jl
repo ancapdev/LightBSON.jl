@@ -1,5 +1,5 @@
 @testset "convenience" begin
-    x = OrderedDict{String, Any}("x" => 1, "y" => 2)
+    x = LittleDict{String, Any}("x" => 1, "y" => 2)
     buf = bson_write(UInt8[], x)
     @test bson_read(buf) == x
     io = IOBuffer()
