@@ -8,7 +8,7 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 ## What It Is
 * Allocation free API for reading and writing BSON data.
 * Natural mapping of Julia types to corresponding BSON types.
-* Convenience API to read and write `Dict{String, Any}` or `OrderedDict{String, Any}` (default, for roundtrip consistency) as BSON.
+* Convenience API to read and write `Dict{String, Any}` or `LittleDict{String, Any}` (default, for roundtrip consistency) as BSON.
 * Struct API tunable for tradeoffs between flexibility, performance, and evolution.
 * Configurable validation levels.
 * Light weight indexing for larger documents.
@@ -23,21 +23,21 @@ High performance encoding and decoding of [BSON](https://bsonspec.org/) data.
 
 ## High Level API
 Performance sensitive use cases are the focus of this package, but a high level API is available for where performance is less of a concern. The high level API will also perform optimally when reading simple types without strings, arrays, or other fields that require allocation.
-* `bson_read([T=Any], src)` reads `T` from `src` where `src` is either a `DenseVector{UInt8}`, an `IO` 
+* `bson_read([T=Any], src)` reads `T` from `src` where `src` is either a `DenseVector{UInt8}`, an `IO`
 object, or a path to a file.
 * `bson_write(dst, x)` writes `x` to `dst` where `x` is a type that maps to fields (dictionary, struct, named tuple), and `dst` is a `DenseVector{UInt8}`, an `IO`, or a path to a file.
-* `bson_write(dst, xs...)` writes `xs` to `dst` where `xs` is a list of `Pair{String, T}` mapping names to field values, and `dst` is as above. 
+* `bson_write(dst, xs...)` writes `xs` to `dst` where `xs` is a list of `Pair{String, T}` mapping names to field values, and `dst` is as above.
 ```Julia
 # Write to a byte buffer and return the buffer
 buf = bson_write(UInt8[], :x => Int64(1), :y => Int64(2))
-# Read from a byte buffer as an OrderedDict{String, Any}
+# Read from a byte buffer as a LittleDict{String, Any}
 bson_read(buf)
 # Read from a byte buffer as a specific type
 x = bson_read(@NamedTuple{x::Int64, y::Int64}, buf)
 path = joinpath(homedir(), "test.bson")
 # Write to a file
 bson_write(path, x)
-# Read from a file as an OrderedDict{String Any}
+# Read from a file as an LittleDict{String Any}
 bson_read(path)
 ```
 
@@ -96,12 +96,12 @@ Where performance is not a concern, elements can be materialized to dictionaries
 ```Julia
 buf = UInt8[]
 writer = BSONWriter(buf)
-writer[] = OrderedDict{String, Any}("x" => Int64(1), "y" => "foo")
+writer[] = LittleDict{String, Any}("x" => Int64(1), "y" => "foo")
 close(writer)
 reader = BSONReader(buf)
 reader[Dict{String, Any}] # Dict{String, Any}("x" => 1, "y" => "foo")
-reader[OrderedDict{String, Any}] # OrderedDict{String, Any}("x" => 1, "y" => "foo")
-reader[Any] # OrderedDict{String, Any}("x" => 1, "y" => "foo")
+reader[LittleDict{String, Any}] # LittleDict{String, Any}("x" => 1, "y" => "foo")
+reader[Any] # LittleDict{String, Any}("x" => 1, "y" => "foo")
 reader["x"][Any] # 1
 reader["y"][Any] # "foo"
 ```
@@ -120,7 +120,7 @@ writer["x"] = (
 )
 close(writer)
 reader = BSONReader(buf)
-reader["x"][Vector{Any}] # Any[OrderedDict{String, Any}("a" => 1, "b" => 1), OrderedDict{String, Any}("a" => 2, "b" => 4), OrderedDict{String, Any}("a" => 3, "b" => 9)]
+reader["x"][Vector{Any}] # Any[LittleDict{String, Any}("a" => 1, "b" => 1), LittleDict{String, Any}("a" => 2, "b" => 4), LittleDict{String, Any}("a" => 3, "b" => 9)]
 reader["x"][3]["b"][Int64] # 9
 ```
 
@@ -344,7 +344,7 @@ buf.data # Underlying array, may be longer than length(buf)
 ## Performance
 Performance naturally will depend very much on the nature of data being processed. The main overarching goal with this package is to enable the highest possible performance where the user requires it and is willing to sacrifice some convenience to achieve their target.
 
-General advice for high performance BSON schema, such as short field names, avoiding long arrays or documents, and using nesting to reduce search complexity, all apply. 
+General advice for high performance BSON schema, such as short field names, avoiding long arrays or documents, and using nesting to reduce search complexity, all apply.
 
 For [LightBSON.jl](#LightBSON) specifically, prefer strings over symbols for field names, use unsafe variants rather than allocating strings and buffers where possible, reuse buffers and indexes, use [BSONWriteBuffer](src/write_buffer.jl) rather than plain `Vector{UInt8}`, and enable `bson_simple(T)` for all applicable types.
 

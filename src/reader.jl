@@ -131,7 +131,7 @@ end
     foreach(f, Map(identity), reader)
 end
 
-function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol})
+@noinline Base.@constprop :none function find_field_(reader::BSONReader, target::String)
     reader.type == BSON_TYPE_DOCUMENT || reader.type == BSON_TYPE_ARRAY || throw(
         ArgumentError("Field access only available on documents and arrays")
     )
@@ -158,6 +158,9 @@ function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol}
     end
     throw(KeyError(target))
 end
+
+# @noinline Base.@constprop :none function Base.getindex(reader::BSONReader, target::Union{AbstractString, Symbol})
+Base.getindex(reader::BSONReader, target::String) = find_field_(reader, target)
 
 function Base.getindex(reader::BSONReader, i::Integer)
     i < 1 && throw(BoundsError(reader, i))
@@ -363,7 +366,7 @@ function read_field_(reader::AbstractBSONReader, ::Type{AbstractFloat})
 end
 
 @inline function read_field_(reader::AbstractBSONReader, ::Type{Union{Nothing, T}}) where T
-    reader.type == BSON_TYPE_NULL ? nothing : reader[T] 
+    reader.type == BSON_TYPE_NULL ? nothing : reader[T]
 end
 
 function read_field_(reader::BSONReader, ::Type{BSONCodeWithScope})
@@ -416,7 +419,7 @@ function read_field_(reader::AbstractBSONReader, ::Type{Any})
     elseif reader.type == BSON_TYPE_STRING
         reader[String]
     elseif reader.type == BSON_TYPE_DOCUMENT
-        reader[OrderedDict{String, Any}]
+        reader[LittleDict{String, Any}]
     elseif reader.type == BSON_TYPE_ARRAY
         reader[Vector{Any}]
     elseif reader.type == BSON_TYPE_BINARY
