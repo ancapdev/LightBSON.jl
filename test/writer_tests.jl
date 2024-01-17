@@ -158,4 +158,26 @@ end
     @test BSONReader(buf, StrictBSONValidator())["x"][EmptyStruct] == EmptyStruct()
 end
 
+struct Bar end
+struct Foo
+    x::Bar
+end
+
+LightBSON.bson_write(writer::BSONWriter, x::Bar) = nothing
+LightBSON.bson_write(writer::BSONWriter, x::Foo) = (writer["x"] = x.x)
+
+function foo(x, buf)
+    writer = BSONWriter(buf)
+    writer["x"] = x
+    close(writer)
+end
+
+@testset "allocation in write_field() for struct-types" begin
+    buf = empty!(fill(0xff, 1000))
+    x = Foo(Bar())
+    foo(x, empty!(buf))
+    a = @allocated foo(x, empty!(buf))
+    @test a == 0
+end
+
 end
