@@ -506,7 +506,8 @@ end
 end
 
 @inline function read_field_(reader::AbstractBSONReader, ::Type{T}) where T
-    if isstructtype(T)
+    # If T is a struct or not concrete (abstract or union), assume it has an implementation to read as object
+    if isstructtype(T) || !isconcretetype(T)
         bson_read(T, reader)
     else
         throw(ArgumentError("Unsupported type $T"))
