@@ -20,6 +20,25 @@ struct DefaultBSONConversions <: BSONConversionRules end
 @inline bson_representation_convert(::Type{Vector{UInt8}}, x::BSONBinary) = x.data
 @inline bson_representation_convert(::Type{BSONBinary}, x::Vector{UInt8}) = BSONBinary(x)
 
+# NOTE: no public API for this, hopefully this  doesn't break too often
+function regex_opts_str_(x::Regex)
+    o1 = Base.regex_opts_str(x.compile_options & ~Base.DEFAULT_COMPILER_OPTS)
+    o2 = Base.regex_opts_str(x.match_options & ~Base.DEFAULT_MATCH_OPTS)
+    o1 * o2
+end
+# Alternative implementation should the former start breaking
+# function regex_opts_str_(r::Regex)
+#     s = string(r)
+#     s[findlast(x -> x == '"', s)+1:end]
+# end
+
+@inline bson_representation_type(::Type{Regex}) = BSONRegex
+@inline bson_representation_convert(::Type{Regex}, x::BSONRegex) = Regex(x.pattern, x.options)
+@inline bson_representation_convert(::Type{BSONRegex}, x::Regex) = BSONRegex(
+    x.pattern,
+    regex_opts_str_(x)
+)
+
 @inline bson_representation_type(::Type{<:IPAddr}) = String
 @inline bson_representation_type(::Type{<:Sockets.InetAddr}) = String
 

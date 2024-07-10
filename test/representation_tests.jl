@@ -96,4 +96,16 @@ end
     @test BSONReader(buf, StrictBSONValidator(), NumericBSONConversions())["x"][Float32] == x
 end
 
+@testset "Regex" for x in [
+    r"test",
+    r"test"i,
+    r"^foo$",
+]
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    writer["x"] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][Regex] == x
+end
+
 end
