@@ -21,6 +21,8 @@ end
 
 @inline Base.sizeof(buffer::BSONWriteBuffer) = buffer.len
 
+@inline Base.elsize(BSONWriteBuffer) = 1
+
 @inline function Base.getindex(buffer::BSONWriteBuffer, i::Integer)
     @boundscheck (i > 0 && i <= buffer.len) || throw(BoundsError(buffer, i))
     @inbounds buffer.data[i]
