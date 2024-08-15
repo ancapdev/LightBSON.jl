@@ -165,7 +165,13 @@ end
 
 @inline function write_field_(writer::BSONWriter, value::T, name::Union{String, Symbol}) where T
     if isstructtype(T)
-        write_field_(writer, field_writer -> field_writer[] = value, name)
+        # NOTE: manually inlining `write_field_(::BSONWriter, generator::Function, name)` due to weird julia codegen issue
+        # write_field_(writer, field_writer -> field_writer[] = value, name)
+        dst = writer.dst
+        write_header_(dst, BSON_TYPE_DOCUMENT, name, 0)
+        element_writer = BSONWriter(dst, writer.conversions)
+        element_writer[] = value
+        close(element_writer)
     else
         throw(ArgumentError("Unsupported type $T"))
     end
