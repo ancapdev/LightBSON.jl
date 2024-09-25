@@ -4,7 +4,7 @@ struct BSONWriter{D <: DenseVector{UInt8}, C <: BSONConversionRules}
     conversions::C
 
     function BSONWriter(
-        dst::D,
+        dst::D;
         conversions::C = DefaultBSONConversions()
     ) where {D <: DenseVector{UInt8}, C <: BSONConversionRules}
         offset = length(dst)
@@ -12,6 +12,11 @@ struct BSONWriter{D <: DenseVector{UInt8}, C <: BSONConversionRules}
         new{D, C}(dst, offset, conversions)
     end
 end
+
+# For back compat
+@inline BSONWriter(dst::DenseVector{UInt8}, conversions::BSONConversionRules) = BSONWriter(
+    dst; conversions
+)
 
 function Base.close(writer::BSONWriter)
     dst = writer.dst

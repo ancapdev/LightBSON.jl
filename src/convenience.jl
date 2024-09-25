@@ -3,24 +3,24 @@
 
 Read an object from the BSON document encoded in `src`.
 """
-bson_read(::Type{T}, bytes::DenseVector{UInt8}) where T = BSONReader(bytes)[T]
+bson_read(::Type{T}, bytes::DenseVector{UInt8}; kwargs...) where T = BSONReader(bytes; kwargs...)[T]
 
 """
     bson_read([T=Any], path::AbstractString)
 
 Read an object from the BSON document at `path`.
 """
-bson_read(::Type{T}, path::AbstractString) where T = bson_read(T, read(path))
+bson_read(::Type{T}, path::AbstractString; kwargs...) where T = bson_read(T, read(path); kwargs...)
 
-function bson_read(::Type{T}, io::IO) where T
+function bson_read(::Type{T}, io::IO; kwargs...) where T
     buf = UInt8[]
     readbytes!(io, buf, typemax(Int))
-    bson_read(T, buf)
+    bson_read(T, buf; kwargs...)
 end
 
-bson_read(bytes::DenseVector{UInt8}) = bson_read(Any, bytes)
-bson_read(path::AbstractString) = bson_read(Any, path)
-bson_read(io::IO) = bson_read(Any, io)
+bson_read(bytes::DenseVector{UInt8}; kwargs...) = bson_read(Any, bytes; kwargs...)
+bson_read(path::AbstractString; kwargs...) = bson_read(Any, path; kwargs...)
+bson_read(io::IO; kwargs...) = bson_read(Any, io; kwargs...)
 
 """
     bson_write(dst::Union{IO, DenseVector{UInt8}}, x)
@@ -28,15 +28,15 @@ bson_read(io::IO) = bson_read(Any, io)
 
 Encode `x` or each element of `xs` as a BSON document in `dst` and return `dst`.
 """
-function bson_write(buf::DenseVector{UInt8}, x)
-    writer = BSONWriter(buf)
+function bson_write(buf::DenseVector{UInt8}, x; kwargs...)
+    writer = BSONWriter(buf; kwargs...)
     writer[] = x
     close(writer)
     buf
 end
 
-function bson_write(buf::DenseVector{UInt8}, xs::Pair...)
-    writer = BSONWriter(buf)
+function bson_write(buf::DenseVector{UInt8}, xs::Pair...; kwargs...)
+    writer = BSONWriter(buf; kwargs...)
     for (k, v) in xs
         writer[k] = v
     end
@@ -44,9 +44,9 @@ function bson_write(buf::DenseVector{UInt8}, xs::Pair...)
     buf
 end
 
-function bson_write(io::IO, x...)
+function bson_write(io::IO, x...; kwargs...)
     buf = UInt8[]
-    bson_write(buf, x...)
+    bson_write(buf, x...; kwargs...)
     write(io, buf)
     io
 end
@@ -57,9 +57,9 @@ end
 
 Encode `x` or each element of `xs` as fields of a BSON document and write to `path`.
 """
-function bson_write(path::AbstractString, x...)
+function bson_write(path::AbstractString, x...; kwargs...)
     open(path, "w") do io
-        bson_write(io, x...)
+        bson_write(io, x...; kwargs...)
     end
     nothing
 end

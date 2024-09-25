@@ -9,16 +9,29 @@ struct BSONReader{S <: DenseVector{UInt8}, V <: BSONValidator, C <: BSONConversi
 end
 
 @inline function BSONReader(
-    src::DenseVector{UInt8},
+    src::DenseVector{UInt8};
     validator::BSONValidator = LightBSONValidator(),
-    conversions::BSONConversionRules = DefaultBSONConversions()
+    conversions::BSONConversionRules = DefaultBSONConversions(),
 )
     validate_root(validator, src)
     BSONReader(src, 0, BSON_TYPE_DOCUMENT, validator, conversions)
 end
 
+# For back compat
+@inline BSONReader(
+    src::DenseVector{UInt8},
+    validator::BSONValidator,
+    conversions::BSONConversionRules
+) =  BSONReader(src; validator, conversions)
+
+# For back compat
+@inline BSONReader(src::DenseVector{UInt8}, validator::BSONValidator) = BSONReader(
+    src; validator
+)
+
+# For back compat
 @inline BSONReader(src::DenseVector{UInt8}, conversions::BSONConversionRules) = BSONReader(
-    src, LightBSONValidator(), conversions
+    src; conversions
 )
 
 @inline Base.pointer(reader::BSONReader) = pointer(reader.src) + reader.offset
