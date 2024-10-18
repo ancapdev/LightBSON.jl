@@ -153,7 +153,7 @@ end
     io = IOBuffer()
     write(io, htol(Int32(16)))
     write(io, BSON_SUBTYPE_UUID)
-    unsafe_write(io, Ref(x), 16)
+    unsafe_write(io, Ref(hton(UInt128(x))), 16)
     reader = BSONReader(single_field_doc_(BSON_TYPE_BINARY, take!(io)))
     @test reader["x"][UUID] == x
     @test reader["x"][Any] == x

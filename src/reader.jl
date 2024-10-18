@@ -243,7 +243,7 @@ end
         )
         len = load_bits_(Int32, p)
         len != 16 && error("Unexpected UUID length $len")
-        return unsafe_load(Ptr{UUID}(p + 5))
+        return UUID(ntoh(unsafe_load(Ptr{UInt128}(p + 5))))
     end
 end
 
@@ -255,7 +255,7 @@ end
         subtype == BSON_SUBTYPE_UUID_OLD || throw(BSONConversionError(reader.type, subtype, BSONUUIDOld))
         len = load_bits_(Int32, p)
         len != 16 && error("Unexpected UUID length $len")
-        return BSONUUIDOld(unsafe_load(Ptr{UUID}(p + 5)))
+        return BSONUUIDOld(UUID(ntoh(unsafe_load(Ptr{UInt128}(p + 5)))))
     end
 end
 
@@ -439,9 +439,9 @@ function read_field_(reader::AbstractBSONReader, ::Type{Any})
         x = reader[BSONBinary]
         data = x.data
         if x.subtype == BSON_SUBTYPE_UUID && length(data) == 16
-            GC.@preserve data unsafe_load(Ptr{UUID}(pointer(data)))
+            GC.@preserve data UUID(ntoh(unsafe_load(Ptr{UInt128}(pointer(data)))))
         elseif x.subtype == BSON_SUBTYPE_UUID_OLD && length(data) == 16
-            GC.@preserve data BSONUUIDOld(unsafe_load(Ptr{UUID}(pointer(data))))
+            GC.@preserve data BSONUUIDOld(UUID(ntoh(unsafe_load(Ptr{UInt128}(pointer(data))))))
         else
             x
         end
