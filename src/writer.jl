@@ -71,13 +71,13 @@ end
 @inline function wire_store_(p::Ptr{UInt8}, x::UUID)
     unsafe_store!(Ptr{Int32}(p), Int32(16))
     unsafe_store!(p + 4, BSON_SUBTYPE_UUID)
-    unsafe_store!(Ptr{UUID}(p + 5), x)
+    unsafe_store!(Ptr{UInt128}(p + 5), hton(UInt128(x.value)))
 end
 
 @inline function wire_store_(p::Ptr{UInt8}, x::BSONUUIDOld)
     unsafe_store!(Ptr{Int32}(p), Int32(16))
     unsafe_store!(p + 4, BSON_SUBTYPE_UUID_OLD)
-    unsafe_store!(Ptr{UUID}(p + 5), x.value)
+    unsafe_store!(Ptr{UInt128}(p + 5), hton(UInt128(x.value)))
 end
 
 @inline function wire_store_(p::Ptr{UInt8}, x::Union{BSONBinary, UnsafeBSONBinary})
