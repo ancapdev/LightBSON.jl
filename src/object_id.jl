@@ -117,7 +117,7 @@ end
     BSONObjectIdIterator(seconds_from_epoch_(), x.rnd, first, first + n)
 end
 
-const default_object_id_generator = BSONObjectIdGenerator()
+default_object_id_generator::BSONObjectIdGenerator = BSONObjectIdGenerator()
 
 @inline BSONObjectId() = default_object_id_generator[]
 
