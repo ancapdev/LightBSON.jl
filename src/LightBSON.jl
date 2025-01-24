@@ -81,4 +81,10 @@ include("write_buffer.jl")
 include("convenience.jl")
 include("fileio.jl")
 
+function __init__()
+    # Ensure object IDs start at a random point on each run
+    # Without this the random starting point is burned in at precompile time
+    global default_object_id_generator = BSONObjectIdGenerator()
+end
+
 end
