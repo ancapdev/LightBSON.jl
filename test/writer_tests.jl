@@ -158,4 +158,21 @@ end
     @test BSONReader(buf, StrictBSONValidator())["x"][EmptyStruct] == EmptyStruct()
 end
 
+@testset "from reader" begin
+    doc1 = bson_write(UInt8[], (; x = 1, y = "foo"))
+    doc2 = bson_write(UInt8[], (; z = false))
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    writer["a"] = BSONReader(doc1)
+    writer["b"] = BSONReader(doc2)
+    writer["c"] = [BSONReader(doc1), BSONReader(doc2)]
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["a"][Any] == LittleDict("x" => 1, "y" => "foo")
+    @test BSONReader(buf, StrictBSONValidator())["b"][Any] == LittleDict("z" => false)
+    @test BSONReader(buf, StrictBSONValidator())["c"][Any] == [
+        LittleDict("x" => 1, "y" => "foo"),
+        LittleDict("z" => false)
+    ]
+end
+
 end
