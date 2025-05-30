@@ -185,6 +185,13 @@ end
     end
 end
 
+@inline function Base.setindex!(writer::BSONWriter, reader::BSONReader, name::Union{String, Symbol})
+    len = sizeof(reader)
+    offset = write_header_(writer.dst, reader.type, name, len)
+    GC.@preserve reader writer unsafe_copyto!(pointer(writer.dst) + offset, pointer(reader), len)
+    nothing
+end
+
 function Base.setindex!(writer::BSONWriter, fields::AbstractDict{<:Union{String, Symbol}})
     for (key, value) in fields
         writer[key] = value
