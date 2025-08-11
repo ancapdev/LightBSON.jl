@@ -17,7 +17,7 @@ UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 WeakRefStrings = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
 
 [compat]
-DataStructures = "0.18"
+DataStructures = "0.18, 0.19"
 Dates = "1"
 DecFP = "1"
 FNVHash = "0.1"
