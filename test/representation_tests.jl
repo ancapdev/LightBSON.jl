@@ -1,6 +1,14 @@
 @enum StringEnum SE_FOO SE_BAR
 @enum IntEnum IE_FOO IE_BAR
 
+struct CustomStruct
+    x::Int
+end
+
+StructTypes.StructType(::Type{CustomStruct}) = StructTypes.CustomStruct()
+StructTypes.lowertype(::Type{CustomStruct}) = Int
+StructTypes.lower(x::CustomStruct) = x.x
+
 LightBSON.bson_representation_type(::Type{IntEnum}) = Int32
 
 @testset "representations" begin
@@ -106,6 +114,18 @@ end
     writer["x"] = x
     close(writer)
     @test BSONReader(buf, StrictBSONValidator())["x"][Regex] == x
+end
+
+@testset "CustomStruct" begin
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    x = CustomStruct(123)
+    writer["x"] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][CustomStruct] == x
+    @test BSONReader(buf, StrictBSONValidator())["x"][Int] == x.x
+    @test BSONReader(buf, StrictBSONValidator())["x"][Any] == x.x
+    @test typeof(BSONReader(buf, StrictBSONValidator())["x"][Any]) == Int
 end
 
 end

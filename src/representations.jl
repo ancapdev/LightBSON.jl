@@ -5,7 +5,13 @@ struct DefaultBSONConversions <: BSONConversionRules end
 @inline bson_representation_type(::DefaultBSONConversions, ::Type{T}) where T = bson_representation_type(T)
 @inline bson_representation_convert(::DefaultBSONConversions, ::Type{T}, x) where T = bson_representation_convert(T, x)
 
-@inline bson_representation_type(::Type{T}) where T = T
+@inline function bson_representation_type(::Type{T}) where T
+    if StructTypes.StructType(T) isa StructTypes.CustomStruct
+        StructTypes.lowertype(T)
+    else
+        T
+    end
+end
 @inline bson_representation_type(::Type{Symbol}) = String
 @inline bson_representation_type(::Type{<:Enum}) = String
 
@@ -13,7 +19,14 @@ struct DefaultBSONConversions <: BSONConversionRules end
 @inline bson_representation_convert(::Type{Vector{Any}}, x::Tuple) = collect(x)
 @inline bson_representation_convert(::Type{T}, x::Vector{Any}) where T <: Tuple = T(x)
 
-@inline bson_representation_convert(::Type{T}, x) where T = StructTypes.construct(T, x)
+@inline function bson_representation_convert(::Type{T}, x::X) where {T, X}
+    if StructTypes.StructType(X) isa StructTypes.CustomStruct
+        StructTypes.construct(T, StructTypes.lower(x))
+    else
+        StructTypes.construct(T, x)
+    end
+end
+
 @inline bson_representation_convert(::Type{String}, x) = string(x)
 
 @inline bson_representation_type(::Type{Vector{UInt8}}) = BSONBinary
