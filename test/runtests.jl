@@ -23,4 +23,5 @@ struct EmptyStruct end
     include("object_id_tests.jl")
     include("convenience_tests.jl")
     include("representation_tests.jl")
+    include("fixed_decimal_tests.jl")
 end
