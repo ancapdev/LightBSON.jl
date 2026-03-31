@@ -23,4 +23,15 @@ end
     @test BSONReader(buf, StrictBSONValidator())["x"][FixedDecimal{Int64, 2}] == x
 end
 
+@testset "Range $T" for T in [Int32, Int64]
+    x = FixedDecimal{T, 0}(typemin(T))
+    buf = empty!(fill(0xff, 1000))
+    writer = BSONWriter(buf)
+    writer["x"] = x
+    close(writer)
+    @test BSONReader(buf, StrictBSONValidator())["x"][Dec128] == Dec128(typemin(T))
+    @test BSONReader(buf, StrictBSONValidator())["x"][FixedDecimal{T, 0}] == x
+
+end
+
 end
